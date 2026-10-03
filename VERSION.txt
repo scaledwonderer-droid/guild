@@ -1,3 +1,3 @@
 灰冠のギルド
-Version 0.7fix5
+Version 0.7fix6
 Save schema 12

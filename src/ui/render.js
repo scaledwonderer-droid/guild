@@ -7,9 +7,9 @@ import { getSurveyRecord, surveyProgressLabel } from '../systems/survey.js';
 import { createActivityPlan, nextUpkeepInfo, nextUpkeepLabel, trustLabel } from '../systems/time.js';
 import { WAREHOUSE_CATEGORIES, MATERIAL_EXCHANGES, warehouseGroups, materialExchangeStatus } from '../systems/warehouse.js';
 import { renderPortrait } from './portraits.js';
-import { renderCampLandscape } from './camp-scene.js?v=0.7fix5';
+import { renderCampLandscape } from './camp-scene.js?v=0.7fix6';
 import { mountSpriteCanvases, renderCharacterSprite, renderEnemySprite } from './sprite-renderer.js';
-import { activityBackdropStyle, campBackdropStyle, dungeonBackdropStyle, guildBackdropStyle } from '../data/backgrounds.js?v=0.7fix5';
+import { activityBackdropStyle, campBackdropStyle, dungeonBackdropStyle, guildBackdropStyle } from '../data/backgrounds.js?v=0.7fix6';
 import { equipmentFitLabel, equipmentProfile } from '../systems/equipment.js';
 import { hasTrialKeys, missingTrialKeys, ownedTrialKeys } from '../systems/trial.js';
 import { TRIAL_KEY_ITEMS } from '../data/v07.js';
@@ -73,16 +73,8 @@ export function render(state) {
         : state.screen === 'guild' ? renderGuild(state)
           : state.screen === 'warehouse' ? renderWarehouse(state)
             : renderHome(state);
-  let pageBackdrop = guildBackdropStyle(state.guildLevel);
-  if (state.screen === 'party') pageBackdrop = dungeonBackdropStyle(state.selectedDungeonId || 'old-cave');
-  if (state.screen === 'expedition' && state.expedition) {
-    pageBackdrop = state.expedition.phase === 'camp'
-      ? campBackdropStyle(state.expedition.dungeonId || 'old-cave')
-      : dungeonBackdropStyle(state.expedition.dungeonId || 'old-cave');
-  }
-  if (state.screen === 'expedition' && !state.expedition && state.lastResult?.dungeonId) pageBackdrop = dungeonBackdropStyle(state.lastResult.dungeonId);
   if (view.dataset) view.dataset.screen = state.screen;
-  view.innerHTML = `<div class="view-backdrop" style="${pageBackdrop}" aria-hidden="true"></div>${page}`;
+  view.innerHTML = page;
   mountSpriteCanvases(view, state);
 }
 

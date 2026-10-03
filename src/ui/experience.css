@@ -602,7 +602,7 @@
 
 /* Version 0.7fix: illustrated backdrops on every management/activity surface. */
 .view { position:relative; isolation:isolate; }
-.view-backdrop { position:absolute; z-index:-1; inset:0 -38px; pointer-events:none; background-image:linear-gradient(180deg,#1017125c 0%,#1017128f 45%,#101712e8 100%),var(--backdrop-image,none); background-size:cover,var(--backdrop-size,cover); background-position:center,var(--backdrop-position,center); background-repeat:no-repeat; filter:saturate(.82) brightness(.8); }
+.view-backdrop { display:none; }
 .portrait-procedural { position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;z-index:2;background:#293a30; }
 .view[data-screen="adventurers"] .card:not(.hero-card):not(.scene-panel),
 .view[data-screen="party"] .card:not(.hero-card):not(.scene-panel),
@@ -688,21 +688,8 @@
 .scene.scene-camp-v02 .camp-landscape { background:transparent; }
 
 /* v0.7fix2: keep the illustrated layer visible and below every interactive surface. */
-body {
-  background-image: linear-gradient(180deg, #10171270 0%, #101712bd 100%), url("../../assets/backgrounds/v06-environments.webp");
-  background-size: cover, cover;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
-}
+body { background:var(--bg); }
 .sidebar { z-index: 40; }
 .main-area { position: relative; z-index: 1; }
 #view { position: relative; isolation: isolate; z-index: 0; }
-#view > .view-backdrop {
-  z-index: 0;
-  opacity: 1;
-  background-image: linear-gradient(180deg, #10171226 0%, #10171258 58%, #101712a8 100%), var(--backdrop-image, url("../../assets/backgrounds/v06-environments.webp"));
-  filter: saturate(.9) brightness(.95);
-  pointer-events: none !important;
-}
-#view > :not(.view-backdrop) { position: relative; z-index: 1; }
 #app button, #app a, #app input, #app select, #app [data-action], #app [data-screen] { pointer-events: auto; }

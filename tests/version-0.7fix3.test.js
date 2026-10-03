@@ -51,12 +51,13 @@ test('画面内の「遠征準備へ」操作が画面属性に奪われず画�
   assert.equal(nodes.get('#page-title').textContent, '編成と遠征準備');
 });
 
-test('背景は操作面の背面に表示され、ポインター操作を遮らない', async () => {
+test('ページ外側は単色にし、シーン背景だけを個別表示する', async () => {
+  const render = await source('src/ui/render.js');
   const css = await source('src/ui/experience.css');
-  assert.match(css, /#view\s*>\s*\.view-backdrop\s*\{[^}]*z-index:\s*0/);
-  assert.match(css, /#view\s*>\s*\.view-backdrop\s*\{[^}]*pointer-events:\s*none\s*!important/s);
-  assert.match(css, /#view\s*>\s*:not\(\.view-backdrop\)\s*\{[^}]*z-index:\s*1/);
-  assert.match(css, /backgrounds\/v06-environments\.webp/);
+  assert.match(render, /view\.innerHTML = page;/);
+  assert.doesNotMatch(render, /class="view-backdrop"/);
+  assert.match(css, /body\s*\{\s*background:\s*var\(--bg\);\s*\}/);
+  assert.match(css, /\.scene\.scene-explore-v02,[\s\S]*?\.scene\.scene-camp-v02\s*\{[^}]*background-image:[^}]*var\(--backdrop-image/);
 });
 
 test('HTMLとCSSが参照する静的背景画像がパッケージ内に揃っている', async () => {
