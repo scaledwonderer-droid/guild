@@ -1,6 +1,6 @@
 import { relationTier } from '../systems/relationships.js';
 import { renderCharacterSprite } from './sprite-renderer.js';
-import { campBackdropStyle } from '../data/backgrounds.js?v=0.7fix6';
+import { campBackdropStyle } from '../data/backgrounds.js?v=0.7fix7';
 import { getDungeon } from '../data/dungeon.js';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);

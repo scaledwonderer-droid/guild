@@ -4,7 +4,7 @@ import { DUNGEONS } from '../src/data/dungeon.js';
 import { RARE_BOSSES, TRIAL_DUNGEON, TRIAL_KEY_ITEMS } from '../src/data/v07.js';
 import { STARTING_ADVENTURERS, statsFor } from '../src/data/adventurers.js';
 import { createInitialState, loadGame, saveGame } from '../src/systems/save.js';
-import { advanceExpedition, startExpedition } from '../src/systems/expedition.js';
+import { advanceExpedition, rareBossChanceFor, startExpedition } from '../src/systems/expedition.js';
 import { syncGuildProgress } from '../src/systems/guild.js';
 import { advanceDay } from '../src/systems/time.js';
 import { itemStackKey, sellWarehouseItems, donateWarehouseItems } from '../src/systems/warehouse.js';
@@ -64,6 +64,18 @@ test('既存4遠征先に別々のレアボスと保護された専用刻印片�
   assert.ok(TRIAL_KEY_ITEMS.every(item => item.protected && item.slot === 'key' && item.value === 0 && item.guildValue === 0));
 });
 
+test('特殊個体は試練の迷宮解禁後にのみ低確率で出現する', () => {
+  const state = createInitialState();
+  assert.equal(rareBossChanceFor(state, 'old-cave'), 0);
+  state.guildLevel = 5;
+  state.guildContribution = 500;
+  syncGuildProgress(state);
+  assert.equal(rareBossChanceFor(state, 'old-cave'), .03);
+  state.surveyRecords['old-cave'].runs = 24;
+  assert.equal(rareBossChanceFor(state, 'old-cave'), .07);
+  assert.equal(rareBossChanceFor(state, 'trial-labyrinth'), 0);
+});
+
 test('刻印片は売却・納品・維持費の強制売却対象にならず、揃うと封印が恒久解放', () => {
   const state = createInitialState();
   const key = { ...TRIAL_KEY_ITEMS[0], uid: 'test-key-one' };
@@ -88,6 +100,9 @@ test('刻印片は売却・納品・維持費の強制売却対象にならず�
 
 test('レアボス討伐時は対応する固有キーが即時に倉庫へ入り、個別調査記録にも残る', () => {
   const state = createInitialState();
+  state.guildLevel = 5;
+  state.guildContribution = 500;
+  syncGuildProgress(state);
   state.policy = 'push';
   for (const person of state.adventurers.slice(0, 3)) {
     person.level = 20;

@@ -102,22 +102,22 @@ export const TRIAL_KEY_ITEMS = [
 export const RARE_BOSSES = {
   'old-cave': {
     id: 'rare-ashen-horn', name: '灰角の喰らい手',
-    template: { name: '灰角の喰らい手', hp: 202, attack: 21, defense: 8, speed: 12, xp: 82, kind: 'boss', boss: true, rareBoss: true, specialEvery: 3, specialPattern: ['howl'] },
+    template: { name: '灰角の喰らい手', hp: 720, attack: 40, defense: 13, speed: 14, xp: 190, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['howl', 'withering-pulse'] },
     keyId: 'seal-ashen-loop'
   },
   'trap-fort': {
     id: 'rare-black-warden', name: '黒鎧の番人',
-    template: { name: '黒鎧の番人', hp: 248, attack: 24, defense: 13, speed: 8, xp: 96, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['trap-snap'] },
+    template: { name: '黒鎧の番人', hp: 950, attack: 46, defense: 21, speed: 12, xp: 220, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['trap-snap', 'withering-pulse'] },
     keyId: 'seal-iron-mark'
   },
   'wind-gorge': {
     id: 'rare-storm-eater', name: '嵐喰らい',
-    template: { name: '嵐喰らい', hp: 274, attack: 27, defense: 10, speed: 17, xp: 112, kind: 'flying', boss: true, rareBoss: true, ranged: true, specialEvery: 2, specialPattern: ['gale-sweep'] },
+    template: { name: '嵐喰らい', hp: 1120, attack: 48, defense: 17, speed: 22, xp: 250, kind: 'flying', boss: true, rareBoss: true, ranged: true, archerWeakpoint: true, magicResistance: .42, meleeRetaliation: true, retaliationDamage: .58, retaliationEffect: '吹き飛ばし', specialEvery: 2, specialPattern: ['gale-sweep', 'withering-pulse'] },
     keyId: 'seal-feather-glyph'
   },
   'collapsed-mine': {
     id: 'rare-vein-colossus', name: '鉱脈喰らい',
-    template: { name: '鉱脈喰らい', hp: 352, attack: 31, defense: 17, speed: 5, xp: 140, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['cave-slam'] },
+    template: { name: '鉱脈喰らい', hp: 1400, attack: 52, defense: 26, speed: 8, xp: 300, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['cave-slam', 'withering-pulse'] },
     keyId: 'seal-deep-vein'
   }
 };
