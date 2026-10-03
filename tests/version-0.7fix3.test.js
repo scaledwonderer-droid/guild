@@ -63,7 +63,7 @@ test('HTMLとCSSが参照する静的背景画像がパッケージ内に揃っ�
   const html = await source('index.html');
   assert.match(html, /href="styles\.css(?:\?[^\"]*)?"/);
   assert.match(html, /href="src\/ui\/experience\.css(?:\?[^\"]*)?"/);
-  assert.match(html, /src="src\/main\.js"/);
+  assert.match(html, /src="src\/main\.js(?:\?[^\"]*)?"/);
   for (const asset of [
     'assets/backgrounds/v06-environments.webp',
     'assets/backgrounds/v06-camps.webp',

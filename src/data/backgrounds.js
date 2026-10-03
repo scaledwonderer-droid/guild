@@ -24,19 +24,19 @@ function pos(index, columns) {
 }
 
 export function guildBackdropStyle(level = 1) {
-  return `--backdrop-image:url("${environmentAtlas}");--backdrop-size:300% 200%;--backdrop-position:0% 0%`;
+  return `--backdrop-image:url('${environmentAtlas}');--backdrop-size:300% 200%;--backdrop-position:0% 0%`;
 }
 
 export function dungeonBackdropStyle(dungeonId = 'old-cave') {
-  if (dungeonId === 'trial-labyrinth') return `--backdrop-image:url("${trialEnvironment}");--backdrop-size:cover;--backdrop-position:center center`;
+  if (dungeonId === 'trial-labyrinth') return `--backdrop-image:url('${trialEnvironment}');--backdrop-size:cover;--backdrop-position:center center`;
   const [column, row] = environments[dungeonId] || environments['old-cave'];
-  return `--backdrop-image:url("${environmentAtlas}");--backdrop-size:300% 200%;--backdrop-position:${pos(column, 3)} ${row * 100}%`;
+  return `--backdrop-image:url('${environmentAtlas}');--backdrop-size:300% 200%;--backdrop-position:${pos(column, 3)} ${row * 100}%`;
 }
 
 export function campBackdropStyle(dungeonId = 'old-cave') {
-  if (dungeonId === 'trial-labyrinth') return `--backdrop-image:url("${trialCamp}");--backdrop-size:cover;--backdrop-position:center center;--camp-fire-x:27%`;
+  if (dungeonId === 'trial-labyrinth') return `--backdrop-image:url('${trialCamp}');--backdrop-size:cover;--backdrop-position:center center;--camp-fire-x:27%`;
   const [column, row, fireX] = camps[dungeonId] || camps['old-cave'];
-  return `--backdrop-image:url("${campAtlas}");--backdrop-size:200% 200%;--backdrop-position:${column * 100}% ${row * 100}%;--camp-fire-x:${fireX}`;
+  return `--backdrop-image:url('${campAtlas}');--backdrop-size:200% 200%;--backdrop-position:${column * 100}% ${row * 100}%;--camp-fire-x:${fireX}`;
 }
 
 export function activityBackdropStyle(activityType = 'guild') {
