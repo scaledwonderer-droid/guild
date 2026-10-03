@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111914">
+  <title>冒険者ギルド — 灰冠の遠征録</title>
+  <link rel="stylesheet" href="styles.css?v=0.7fix4">
+  <link rel="stylesheet" href="src/ui/experience.css?v=0.7fix4">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#home" aria-label="ギルド本部へ">
+        <span class="brand-mark">✦</span>
+        <span><strong>灰冠のギルド</strong><small>THE ASHEN CROWN</small></span>
+      </a>
+      <div class="sidebar-rule"></div>
+      <p class="nav-caption">GUILD</p>
+      <nav class="main-nav" aria-label="メインメニュー">
+        <button data-screen="home" class="nav-item active"><span>⌂</span>本部</button>
+        <button data-screen="adventurers" class="nav-item"><span>♙</span>冒険者</button>
+        <button data-screen="party" class="nav-item"><span>⚔</span>編成と準備</button>
+        <button data-screen="guild" class="nav-item"><span>⚜</span>ギルド管理</button>
+        <button data-screen="warehouse" class="nav-item"><span>▤</span>ギルド倉庫</button>
+        <button data-screen="expedition" class="nav-item"><span>⌖</span>遠征観戦</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="save-state"><span class="save-dot"></span><span id="save-status">自動保存有効</span></div>
+        <button data-action="manual-save" class="sidebar-action">▣　手動セーブ</button>
+        <button id="new-game" class="sidebar-action danger-action">↻　ニューゲーム</button>
+        <div class="version-tag">VERSION 0.7fix4 · SCENE BACKDROPS</div>
+      </div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar">
+        <div><p class="eyebrow" id="date-label">GUILD RECORD</p><h1 id="page-title">ギルド本部</h1></div>
+        <div class="topbar-right">
+          <button id="manual-save" class="top-save" title="手動セーブ">▣ <span>保存</span></button>
+          <div class="treasury-chip" title="ギルド金庫の残高"><small>金庫</small><strong id="guild-funds">90G</strong><span id="next-upkeep">次回 --G</span></div>
+          <div class="rank-chip" title="ギルド公認ランク"><span>⚜</span><strong id="guild-rank">Lv.1</strong></div>
+          <div class="day-chip"><span class="chip-icon">◷</span><span id="day-count">第1日</span></div>
+          <div class="master-chip"><span class="master-avatar">GM</span><span><strong>ギルドマスター</strong><small>灰冠の本部</small></span></div>
+        </div>
+      </header>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <section id="view" class="view" aria-live="polite"></section>
+      <footer class="footer-note"><span>灰冠の遠征録</span><span>すべての決断は、帰還した仲間の物語になる。</span></footer>
+    </main>
+  </div>
+  <dialog id="confirm-dialog" class="modal">
+    <form method="dialog"><p class="eyebrow">GUILD RECORD</p><h2 id="dialog-title">確認</h2><p id="dialog-copy"></p>
+      <div class="modal-actions"><button class="button button-quiet" value="cancel">戻る</button><button id="dialog-confirm" class="button button-danger" value="confirm">実行する</button></div>
+    </form>
+  </dialog>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
