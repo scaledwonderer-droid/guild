@@ -157,7 +157,7 @@ test('5人同士の戦闘表示は左右の全HPを含み、ログと調査欄�
     for (const enemy of enemies) assert.ok(view.innerHTML.includes(enemy.name));
     assert.match(view.innerHTML, /battle-log/);
     assert.match(view.innerHTML, /battle-survey/);
-    assert.match(view.innerHTML, /v06-environments\.webp/);
+    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/old-cave\.webp/);
   } finally {
     delete globalThis.document;
   }

@@ -1,6 +1,11 @@
-# 灰冠のギルド — Version 0.7fix7
+# 灰冠のギルド — Version 0.7fix8
 
 ブラウザで遊べる、冒険者ギルド経営シミュレーションRPGです。HTML・CSS・JavaScriptのみで構成した静的Webゲームで、ビルドや外部ライブラリは不要です。GitHub Pagesへそのまま配置できます。
+
+## Version 0.7fix8 の修正内容
+
+- 背景アトラスを場所ごとの画像に分け、ギルド・遠征先・野営の枠に合わせて画像が引き伸ばされないようにしました。表示は縦横比を保ったまま領域へ収めます。
+- GitHub Pages用の相対アセット参照とキャッシュ識別子を更新しました。ページ外側の背景は変更していません。
 
 ## Version 0.7fix7 の修正内容
 
@@ -103,8 +108,9 @@ python3 -m http.server 8000
 - `assets/characters/` — 初期ポートレートシートと重複しない募集者ポートレート素材
 - `src/data/` — 冒険者、職業、外見差分、装備、ダンジョン、レアボス、二つ名・スキル、野営会話のデータ
 - `src/systems/` — 自動戦闘、遠征、封印・二つ名、ギルド成長、募集、日数・自律活動・維持費、関係性、セーブ
-- `assets/backgrounds/` — ギルド・遠征先・野営地・試練の迷宮専用の背景
-- `src/data/backgrounds.js` — 画面と背景アトラスの対応
+- `assets/backgrounds/scenes/` — ギルド・遠征先・野営地ごとに切り出した背景画像
+- `assets/backgrounds/` — 試練の迷宮専用の背景と元画像アトラス
+- `src/data/backgrounds.js` — 画面と個別背景画像の対応
 - `src/systems/equipment.js` — 職業ごとの装備適性と重量効果
 - `src/ui/` — 画面表示、共通ポートレート、Canvas 2Dスプライト描画、野営風景、追加UI
 - `src/main.js` — 画面操作と各システムの接続

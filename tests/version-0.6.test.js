@@ -103,7 +103,7 @@ test('ギルド・装備・遠征画面が背景と適性情報を描画する',
     state.screen = 'guild';
     render(state);
     assert.match(view.innerHTML, /guild-hall-banner/);
-    assert.match(view.innerHTML, /v06-environments\.webp/);
+    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/guild-hall\.webp/);
     state.screen = 'adventurers';
     render(state);
     assert.match(view.innerHTML, /適性あり/);
@@ -112,12 +112,12 @@ test('ギルド・装備・遠征画面が背景と適性情報を描画する',
     assert.equal(startExpedition(state, 'old-cave').ok, true);
     render(state);
     assert.match(view.innerHTML, /scene-backdrop/);
-    assert.match(view.innerHTML, /v06-environments\.webp/);
+    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/old-cave\.webp/);
     state.expedition.phase = 'camp';
     state.expedition.narrative = { type: 'camp', title: '野営', description: '休息', campScene: { title: '野営', speakers: [], narration: [], dialogue: [] } };
     render(state);
     assert.match(view.innerHTML, /camp-landscape/);
-    assert.match(view.innerHTML, /v06-camps\.webp/);
+    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/camp-old-cave\.webp/);
   } finally {
     delete globalThis.document;
   }

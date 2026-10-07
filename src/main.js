@@ -2,7 +2,7 @@ import { createInitialState, loadGame, saveGame } from './systems/save.js';
 import { startExpedition, advanceExpedition, restAtGuild } from './systems/expedition.js';
 import { buyShopItem, recruitAdventurer, resolveLootChoice, refreshRecruitment, dismissRecruitment } from './systems/guild.js';
 import { takeActivityDay, advanceObservedActivity } from './systems/time.js';
-import { render } from './ui/render.js?v=0.7fix7';
+import { render } from './ui/render.js?v=0.7fix8';
 import { donateWarehouseItems, exchangeMaterials, sellWarehouseItems } from './systems/warehouse.js';
 import { unlockTrialSeal } from './systems/trial.js';
 
