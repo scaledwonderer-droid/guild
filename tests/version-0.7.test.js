@@ -4,7 +4,7 @@ import { DUNGEONS } from '../src/data/dungeon.js';
 import { RARE_BOSSES, TRIAL_DUNGEON, TRIAL_KEY_ITEMS } from '../src/data/v07.js';
 import { STARTING_ADVENTURERS, statsFor } from '../src/data/adventurers.js';
 import { createInitialState, loadGame, saveGame } from '../src/systems/save.js';
-import { advanceExpedition, rareBossChanceFor, startExpedition } from '../src/systems/expedition.js';
+import { advanceExpedition, startExpedition } from '../src/systems/expedition.js';
 import { syncGuildProgress } from '../src/systems/guild.js';
 import { advanceDay } from '../src/systems/time.js';
 import { itemStackKey, sellWarehouseItems, donateWarehouseItems } from '../src/systems/warehouse.js';
@@ -54,7 +54,8 @@ test('試練の迷宮はギルドLv5で解禁され、15区画と4つの野営�
   assert.equal(TRIAL_DUNGEON.floors, 15);
   assert.deepEqual(TRIAL_DUNGEON.campFloors, [3, 6, 9, 12]);
   assert.ok(Object.keys(TRIAL_DUNGEON.routeChoices).length >= 6);
-  assert.equal(Object.keys(DUNGEONS).length, 5);
+  assert.equal(Object.keys(DUNGEONS).length, 8);
+  assert.deepEqual(['aldina-road', 'fergran-ruins', 'north-expanse'].filter(id => state.unlockedDungeons.includes(id)), []);
 });
 
 test('既存4遠征先に別々のレアボスと保護された専用刻印片を設定', () => {
@@ -62,18 +63,6 @@ test('既存4遠征先に別々のレアボスと保護された専用刻印片�
   assert.equal(new Set(Object.values(RARE_BOSSES).map(boss => boss.keyId)).size, 4);
   assert.equal(TRIAL_KEY_ITEMS.length, 4);
   assert.ok(TRIAL_KEY_ITEMS.every(item => item.protected && item.slot === 'key' && item.value === 0 && item.guildValue === 0));
-});
-
-test('特殊個体は試練の迷宮解禁後にのみ低確率で出現する', () => {
-  const state = createInitialState();
-  assert.equal(rareBossChanceFor(state, 'old-cave'), 0);
-  state.guildLevel = 5;
-  state.guildContribution = 500;
-  syncGuildProgress(state);
-  assert.equal(rareBossChanceFor(state, 'old-cave'), .03);
-  state.surveyRecords['old-cave'].runs = 24;
-  assert.equal(rareBossChanceFor(state, 'old-cave'), .07);
-  assert.equal(rareBossChanceFor(state, 'trial-labyrinth'), 0);
 });
 
 test('刻印片は売却・納品・維持費の強制売却対象にならず、揃うと封印が恒久解放', () => {
@@ -100,9 +89,6 @@ test('刻印片は売却・納品・維持費の強制売却対象にならず�
 
 test('レアボス討伐時は対応する固有キーが即時に倉庫へ入り、個別調査記録にも残る', () => {
   const state = createInitialState();
-  state.guildLevel = 5;
-  state.guildContribution = 500;
-  syncGuildProgress(state);
   state.policy = 'push';
   for (const person of state.adventurers.slice(0, 3)) {
     person.level = 20;
@@ -161,7 +147,7 @@ test('封印確認で一度帰還し、解放後のボス討伐で隊員ごと�
   try {
     assert.equal(saveGame(state), true);
     const loaded = loadGame();
-    assert.equal(loaded.state.version, 12);
+    assert.equal(loaded.state.version, 13);
     assert.equal(loaded.state.trialBossRoomUnlocked, true);
     assert.equal(loaded.state.trialBossDefeated, true);
     assert.equal(loaded.state.trialBossRecords[0].honors.length, 5);

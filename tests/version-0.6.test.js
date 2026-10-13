@@ -80,7 +80,7 @@ test('Version 0.5fixセーブを最新形式へ移行し、調査項目を補う
     old.inventory.push({ uid: 'armor_scale_vest_old', name: '洞窟獣の鱗鎧', slot: 'armor', weight: 5, defense: 5 });
     values.set('ashen-crown-guild-v01', JSON.stringify(old));
     const loaded = loadGame();
-    assert.equal(loaded.state.version, 12);
+    assert.equal(loaded.state.version, 13);
     assert.equal(loaded.migrated, true);
     assert.deepEqual(loaded.state.surveyRecords['old-cave'].externalThreats, []);
     assert.equal(loaded.state.inventory.find(item => item.uid === 'armor_scale_vest_old').effects.poisonResistance, .28);
@@ -103,7 +103,7 @@ test('ギルド・装備・遠征画面が背景と適性情報を描画する',
     state.screen = 'guild';
     render(state);
     assert.match(view.innerHTML, /guild-hall-banner/);
-    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/guild-hall\.webp/);
+    assert.match(view.innerHTML, /v06-environments\.webp/);
     state.screen = 'adventurers';
     render(state);
     assert.match(view.innerHTML, /適性あり/);
@@ -112,12 +112,12 @@ test('ギルド・装備・遠征画面が背景と適性情報を描画する',
     assert.equal(startExpedition(state, 'old-cave').ok, true);
     render(state);
     assert.match(view.innerHTML, /scene-backdrop/);
-    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/old-cave\.webp/);
+    assert.match(view.innerHTML, /v06-environments\.webp/);
     state.expedition.phase = 'camp';
     state.expedition.narrative = { type: 'camp', title: '野営', description: '休息', campScene: { title: '野営', speakers: [], narration: [], dialogue: [] } };
     render(state);
     assert.match(view.innerHTML, /camp-landscape/);
-    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/camp-old-cave\.webp/);
+    assert.match(view.innerHTML, /v06-camps\.webp/);
   } finally {
     delete globalThis.document;
   }

@@ -67,7 +67,7 @@ test('Version 0.7セーブの読み込みで重複肖像を補い、fix形式へ
     candidates[1].portraitAppearance = structuredClone(candidates[0].portraitAppearance);
     values.set('ashen-crown-guild-v01', JSON.stringify(old));
     const loaded = loadGame();
-    assert.equal(loaded.state.version, 12);
+    assert.equal(loaded.state.version, 13);
     const portraitIds = loaded.state.recruitmentCandidates.map(person => person.portraitAppearance.portraitId);
     assert.equal(new Set(portraitIds).size, portraitIds.length);
     assert.ok(loaded.migrated);
@@ -157,7 +157,7 @@ test('5人同士の戦闘表示は左右の全HPを含み、ログと調査欄�
     for (const enemy of enemies) assert.ok(view.innerHTML.includes(enemy.name));
     assert.match(view.innerHTML, /battle-log/);
     assert.match(view.innerHTML, /battle-survey/);
-    assert.match(view.innerHTML, /assets\/backgrounds\/scenes\/old-cave\.webp/);
+    assert.match(view.innerHTML, /v06-environments\.webp/);
   } finally {
     delete globalThis.document;
   }

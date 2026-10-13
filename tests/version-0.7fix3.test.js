@@ -51,20 +51,22 @@ test('画面内の「遠征準備へ」操作が画面属性に奪われず画�
   assert.equal(nodes.get('#page-title').textContent, '編成と遠征準備');
 });
 
-test('ページ外側は単色にし、シーン背景だけを個別表示する', async () => {
-  const render = await source('src/ui/render.js');
+test('ページ外側は単色で、イラストはゲーム内シーンだけに表示する', async () => {
   const css = await source('src/ui/experience.css');
-  assert.match(render, /view\.innerHTML = page;/);
-  assert.doesNotMatch(render, /class="view-backdrop"/);
-  assert.match(css, /body\s*\{\s*background:\s*var\(--bg\);\s*\}/);
-  assert.match(css, /\.scene\.scene-explore-v02,[\s\S]*?\.scene\.scene-camp-v02\s*\{[^}]*background-image:[^}]*var\(--backdrop-image/);
+  const baseCss = await source('styles.css');
+  const render = await source('src/ui/render.js');
+  assert.match(baseCss, /body\{[^}]*background:var\(--bg\)/);
+  assert.doesNotMatch(css, /body\s*\{[^}]*background-image\s*:/s);
+  assert.doesNotMatch(css, /\.view-backdrop/);
+  assert.doesNotMatch(render, /class=["']view-backdrop/);
+  assert.match(css, /\.scene\.scene-explore-v02,[\s\S]*?background-image:[^}]*var\(--backdrop-image/);
 });
 
 test('HTMLとCSSが参照する静的背景画像がパッケージ内に揃っている', async () => {
   const html = await source('index.html');
   assert.match(html, /href="styles\.css(?:\?[^\"]*)?"/);
   assert.match(html, /href="src\/ui\/experience\.css(?:\?[^\"]*)?"/);
-  assert.match(html, /src="src\/main\.js(?:\?[^\"]*)?"/);
+  assert.match(html, /src="src\/main\.js"/);
   for (const asset of [
     'assets/backgrounds/v06-environments.webp',
     'assets/backgrounds/v06-camps.webp',
