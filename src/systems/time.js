@@ -1,6 +1,7 @@
 import { JOBS, statsFor } from '../data/adventurers.js';
 import { adjustRelation, relationValue } from './relationships.js';
 import { recordFinance } from './finance.js';
+import { guildMaturityTier } from './maturity.js';
 
 const TASK_LABELS = {
   rest: '休養班', training: '訓練班', contract: '軽依頼班', gathering: '採取班', guild: 'ギルド雑務', social: '交流班'
@@ -15,7 +16,7 @@ function stableRoll(text) {
 function taskFor(state, person, day, forcedType = null) {
   if (forcedType) return forcedType;
   const fatigue = Number(person.fatigue || 0);
-  const hurt = Boolean(person.injury || person.hp <= 0);
+  const hurt = Boolean(person.injury || person.hp <= 0 || (person.conditions || []).length);
   const trust = Number(person.guildTrust ?? 75);
   const roll = stableRoll(`${day}:${person.id}:${person.job}`);
   const hasClosePeer = state.adventurers.some(other => other.id !== person.id && relationValue(state, person.id, other.id) >= 67);
@@ -40,6 +41,19 @@ export function createActivityPlan(state, options = {}) {
   const primaryIds = [...(options.primaryIds || [])];
   const forcedIds = new Set(options.forcedIds || []);
   const byId = new Map(state.adventurers.map(person => [person.id, person]));
+  const assignedTypes = new Map();
+  for (const person of state.adventurers) {
+    if (primaryIds.includes(person.id)) continue;
+    const forcedType = forcedIds.has(person.id) ? options.forcedType || 'rest' : null;
+    assignedTypes.set(person.id, taskFor(state, person, day, forcedType));
+  }
+  if (guildMaturityTier(state) >= 2) {
+    const trainees = state.adventurers.filter(person => !primaryIds.includes(person.id) && assignedTypes.get(person.id) === 'training' && person.level <= 8 && !person.injury && Number(person.fatigue || 0) < 70);
+    for (const trainee of trainees) {
+      const mentor = state.adventurers.find(person => person.id !== trainee.id && !primaryIds.includes(person.id) && !person.injury && Number(person.fatigue || 0) < 70 && (person.level >= 12 || (person.epithets || []).length) && person.level >= trainee.level + 4);
+      if (mentor && !forcedIds.has(mentor.id)) assignedTypes.set(mentor.id, 'training');
+    }
+  }
   const groups = [];
   if (options.includePrimary && primaryIds.length) {
     groups.push({ id: 'expedition', type: 'expedition', label: '主遠征隊', memberIds: primaryIds.slice(), names: primaryIds.map(id => byId.get(id)?.name).filter(Boolean) });
@@ -47,8 +61,7 @@ export function createActivityPlan(state, options = {}) {
   const grouped = new Map();
   for (const person of state.adventurers) {
     if (primaryIds.includes(person.id)) continue;
-    const forcedType = forcedIds.has(person.id) ? options.forcedType || 'rest' : null;
-    const type = taskFor(state, person, day, forcedType);
+    const type = assignedTypes.get(person.id) || 'guild';
     const group = grouped.get(type) || { id: type, type, label: TASK_LABELS[type] || 'ギルド活動', memberIds: [], names: [] };
     group.memberIds.push(person.id);
     group.names.push(person.name);
@@ -72,7 +85,9 @@ function trust(person, delta) {
 function recoverDuringRest(state, person) {
   const stats = statsFor(person, state.inventory);
   person.hp = Math.min(stats.maxHp, Math.max(0, person.hp) + Math.ceil(stats.maxHp * .24));
-  person.fatigue = Math.max(0, Number(person.fatigue || 0) - 32);
+  const recovery = (person.conditions || []).includes('消耗') ? 24 : 32;
+  person.fatigue = Math.max(0, Number(person.fatigue || 0) - recovery);
+  person.conditions = [];
   if (person.injury === '重傷') {
     person.injuryDays = (person.injuryDays || 0) + 1;
     if (person.injuryDays >= 2) {
@@ -114,10 +129,15 @@ function applyDailyGroup(state, group, day) {
     }
     if (group.type === 'training') {
       const xp = 10 + Math.min(5, person.level);
-      const levels = addExperience(person, state, xp);
+      const maturity = guildMaturityTier(state);
+      const mentor = maturity >= 2 ? people.find(other => other.id !== person.id && (other.level >= 12 || (other.epithets || []).length) && other.level >= person.level + 4) : null;
+      const mentoringXp = mentor && person.level <= 8 ? 5 : 0;
+      const totalXp = xp + mentoringXp;
+      const levels = addExperience(person, state, totalXp);
       person.fatigue = Math.min(100, Number(person.fatigue || 0) + 5);
-      pushHistory(person, day, '訓練', `訓練場で基礎を磨き、経験値を${xp}得た。`, { xp, fatigueDelta: 5, levels });
-      notices.push(`${person.name}は訓練した`);
+      const summary = mentor ? `${mentor.name}が訓練を見守り、助言を受けながら基礎を磨いた。経験値${totalXp}を得た。` : `訓練場で基礎を磨き、経験値を${xp}得た。`;
+      pushHistory(person, day, mentor ? '新人訓練' : '訓練', summary, { xp: totalXp, fatigueDelta: 5, levels, mentorId: mentor?.id });
+      notices.push(mentor ? `${mentor.name}が${person.name}の訓練を手伝った` : `${person.name}は訓練した`);
       continue;
     }
     if (group.type === 'contract') {
@@ -164,7 +184,7 @@ function applyDailyGroup(state, group, day) {
 }
 
 export function upkeepCost(state) {
-  return Math.max(24, state.adventurers.length * 4 + Math.max(1, Number(state.guildLevel || 1)) * 7 + 3);
+  return Math.max(24, state.adventurers.length * 4 + Math.max(1, Number(state.guildLevel || 1)) * 7 + 3 + guildMaturityTier(state) * 12);
 }
 
 function forcedSaleOrder(state) {

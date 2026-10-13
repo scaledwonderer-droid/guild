@@ -3,11 +3,12 @@ import { LOOT_ITEMS } from '../data/items.js';
 import { statsFor } from '../data/adventurers.js';
 import { createCampScene, adjustRelation } from './relationships.js';
 import { simulateBattle } from './combat.js';
-import { partyLimitForLevel } from './guild.js';
+import { partyLimitForLevel, syncGuildProgress } from './guild.js';
 import { createExpeditionDiscovery, recordDiscovery, mergeExpeditionSurvey } from './survey.js';
 import { advanceDay, advanceObservedActivity, createActivityPlan } from './time.js';
 import { RARE_BOSSES, TRIAL_KEY_ITEMS } from '../data/v07.js';
 import { awardTrialHonors, hasTrialKeys, unlockTrialSeal } from './trial.js';
+import { recordLateDungeonClear } from './maturity.js';
 
 const pick = (rng, items) => items[Math.floor(rng() * items.length)];
 const rnd = (rng, min, max) => Math.floor(rng() * (max - min + 1)) + min;
@@ -43,13 +44,6 @@ function carryLimitFor(state, party) {
   return base + party.reduce((sum, person) => sum + statsFor(person, state.inventory).carryBonus, 0);
 }
 
-export function rareBossChanceFor(state, dungeonId) {
-  if (!RARE_BOSSES[dungeonId] || !(state.unlockedDungeons || ['old-cave']).includes('trial-labyrinth')) return 0;
-  const priorRuns = Math.max(0, Number(state.surveyRecords?.[dungeonId]?.runs || 0));
-  // Repeated field work helps the guild notice unusual signs, but never makes them routine.
-  return Math.min(.07, .03 + Math.floor(priorRuns / 2) * .005);
-}
-
 export function startExpedition(state, dungeonId = state.selectedDungeonId || 'old-cave') {
   const dungeon = getDungeon(dungeonId);
   if (!(state.unlockedDungeons || ['old-cave']).includes(dungeon.id)) return { ok: false, message: 'この遠征先はまだ解禁されていません。' };
@@ -58,7 +52,11 @@ export function startExpedition(state, dungeonId = state.selectedDungeonId || 'o
   if (eligible.length < state.party.length) return { ok: false, message: '負傷中の冒険者が編成に含まれています。編成を見直してください。' };
   if (eligible.length > partyLimitForLevel(state.guildLevel || 1)) return { ok: false, message: `現在のギルドではパーティーは${partyLimitForLevel(state.guildLevel || 1)}人までです。` };
   const seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-  const rareBossChance = rareBossChanceFor(state, dungeon.id);
+  const priorRuns = Number(state.surveyRecords?.[dungeon.id]?.runs || 0);
+  const rareBossUnlocked = (state.unlockedDungeons || []).includes('trial-labyrinth');
+  const rareBossChance = !rareBossUnlocked || dungeon.id === 'trial-labyrinth' || !RARE_BOSSES[dungeon.id]
+    ? 0
+    : Math.min(.055, .016 + priorRuns * .0025);
   const rareBossRoll = makeRng(seed ^ 0x7f4a7c15);
   const rareBossPlan = rareBossRoll() < rareBossChance
     ? { floor: 2 + Math.floor(rareBossRoll() * Math.max(1, dungeon.floors - 2)), id: RARE_BOSSES[dungeon.id].id }
@@ -87,7 +85,6 @@ export function startExpedition(state, dungeonId = state.selectedDungeonId || 'o
     campTemplateHistory: [], visitedFloors: [1], bossDefeated: false, elapsed: 0, raidReports: [],
     campChanges: [], campContext: null, discovery: createExpeditionDiscovery(1),
     rareBossPlan, rareBossEncountered: false, trialBossVictory: false,
-    cursedIds: [], sleepingIds: [], bleedingIds: [], pendingRareBossRetreat: false,
     trialBossRoomUnlocked: Boolean(state.trialBossRoomUnlocked),
     startHp,
     startFatigue,
@@ -133,6 +130,33 @@ function makeFloorEvents(expedition, floor) {
     if (floor >= 5 && floor % 3 === 2) events.push({ kind: 'march', title: '長い迷宮行軍' });
     return events;
   }
+  if (dungeon.lateGame) {
+    if (floor === dungeon.floors) {
+      const leadIn = [];
+      if (dungeon.hazards.length) leadIn.push({ kind: 'hazard', hazard: pick(rng, dungeon.hazards), title: '最深部へ続く複合障害' });
+      if (dungeon.id === 'north-expanse') leadIn.push({ kind: 'march', title: '最後の長い行軍' });
+      leadIn.push({ kind: 'boss', title: dungeon.boss });
+      return leadIn;
+    }
+    const enemyPool = dungeon.enemyGroups[floor] || dungeon.enemyGroups[dungeon.floors - 1];
+    const events = [];
+    const trapFirst = dungeon.id === 'aldina-road' && [2, 4, 6].includes(floor);
+    const ledgeFirst = dungeon.id === 'fergran-ruins' && floor % 2 === 0;
+    if (trapFirst) events.push({ kind: 'hazard', hazard: pick(rng, ['pit', 'poison', 'alarm', 'laceration']), title: '仕掛けの残る区画' });
+    else if (ledgeFirst) events.push({ kind: 'hazard', hazard: pick(rng, ['narrow-ledge', 'gust', 'falling-rock']), title: '足場の途切れた区画' });
+    else if (dungeon.id === 'north-expanse' || floor % 3 === 2) events.push({ kind: 'march', title: '長い移動' });
+    events.push({ kind: 'encounter', enemies: pick(rng, enemyPool).slice(), title: '複合戦闘' });
+    if (dungeon.id === 'aldina-road' && [2, 4, 6].includes(floor)) events.push({ kind: 'trapped-chest', title: '仕掛け付きの保管箱' });
+    else if (dungeon.id === 'fergran-ruins') {
+      if (rng() < .52) events.push({ kind: 'hazard', hazard: pick(rng, dungeon.hazards), title: '崩れた足場' });
+      else events.push({ kind: 'side', title: '遺構の小さな出来事' });
+    } else if (dungeon.id === 'north-expanse') {
+      if (floor % 3 === 0) events.push({ kind: 'mine-cache', title: '重い荷の集積所' });
+      if (rng() < .48) events.push({ kind: 'hazard', hazard: pick(rng, dungeon.hazards), title: '移動中の消耗' });
+    } else if (rng() < .26) events.push({ kind: 'chest', title: '見つかった宝箱' });
+    if (dungeon.routeChoices?.[floor]) events.push({ kind: 'route', choices: dungeon.routeChoices[floor], title: '分かれ道' });
+    return events;
+  }
   if (floor === dungeon.floors) {
     const hazard = dungeon.hazards.length && (dungeon.id !== 'old-cave' || rng() < .25) ? { kind: 'hazard', hazard: pick(rng, dungeon.hazards), title: '最深部の危険' } : null;
     const finalEvents = [...(hazard ? [hazard] : []), { kind: 'boss', title: dungeon.boss }];
@@ -148,18 +172,15 @@ function makeFloorEvents(expedition, floor) {
   if (dungeon.hazards.length && (dungeon.id !== 'old-cave' || rng() < .2)) {
     events.push({ kind: 'hazard', hazard: pick(rng, dungeon.hazards), title: '探索中の障害' });
   }
-  if (dungeon.id === 'trap-fort') {
-    if ([2, 4].includes(floor)) events.push({ kind: 'locked-chest', title: '鍵付き宝箱' });
-    else events.push({ kind: 'chest', trapped: true, title: '罠付きの宝箱' });
-  } else if (dungeon.id === 'collapsed-mine') events.push({ kind: 'mine-cache', title: '鉱脈の採掘' });
+  if (dungeon.id === 'trap-fort' && [2, 4].includes(floor)) events.push({ kind: 'locked-chest', title: '鍵付き宝箱' });
+  else if (dungeon.id === 'collapsed-mine') events.push({ kind: 'mine-cache', title: '鉱脈の採掘' });
   else {
     const secondRoll = rng();
     if (secondRoll < .2) events.push({ kind: 'chest', title: '見つかった宝箱' });
     else if (secondRoll < .43) events.push({ kind: 'side', title: '小さな出来事' });
     else events.push({ kind: 'explore', title: '通路の先へ' });
   }
-  if (dungeon.id === 'collapsed-mine') events.push({ kind: 'march', title: '険しい坑道の行軍' });
-  else if (level >= 2 && floor >= 2 && rng() < .2 + Math.max(0, level - 2) * .09) events.push({ kind: 'march', title: '長い行軍' });
+  if (level >= 2 && floor >= 2 && rng() < .2 + Math.max(0, level - 2) * .09) events.push({ kind: 'march', title: '長い行軍' });
   if (level >= 3 && dungeon.hazards.length && rng() < .1 + Math.max(0, level - 3) * .1) events.push({ kind: 'hazard', hazard: pick(rng, dungeon.hazards), title: '重なる危険' });
   return events;
 }
@@ -233,12 +254,6 @@ function settleAfterEvent(state, expedition) {
   const dungeon = dungeonFor(expedition);
   if (!activeFor(state, expedition).length) {
     finishExpedition(state, 'defeat', '全員が戦闘不能となり、遠征を続けられませんでした。');
-    return { ok: true };
-  }
-  if (expedition.pendingRareBossRetreat) {
-    expedition.pendingRareBossRetreat = false;
-    addLog(expedition, '特殊個体の力を前に、隊列を保てるうちに撤退した。次に挑むには、さらなる育成と準備が必要だ。', 'danger');
-    finishExpedition(state, 'retreat', '特殊個体を討伐できず、冒険者たちは自律判断で退路を選びました。');
     return { ok: true };
   }
   if (expedition.eventIndex >= expedition.floorEvents.length) {
@@ -376,7 +391,6 @@ function resolveEvent(state, expedition, event) {
       displayDescription: result.victory ? `${result.rounds}ラウンドで敵を退けた。役割を活かして隊列を保った。` : '冒険者たちは傷ついた仲間を支え、退路を探す。'
     };
     expedition.pendingBattleAdvance = true;
-    if (event.kind === 'rare-boss' && !result.victory) expedition.pendingRareBossRetreat = true;
     if (result.victory) {
       expedition.bonusXp += event.kind === 'boss' ? 18 : event.kind === 'rare-boss' ? 35 : 3;
       if (event.kind === 'boss' && dungeon.id === 'trial-labyrinth' && event.enemyIds?.includes('trial-boss')) {
@@ -398,18 +412,19 @@ function resolveEvent(state, expedition, event) {
   if (event.kind === 'hazard') return resolveHazard(state, expedition, event.hazard, rng);
   if (event.kind === 'march') {
     recordDiscovery(expedition, 'environments', '長距離行軍');
-    const carrier = activeFor(state, expedition).find(person => person.job === 'carrier');
-    const baseIncrease = dungeon.id === 'collapsed-mine' ? 14 : dungeon.id === 'trial-labyrinth' ? 8 : 6 + Math.max(0, Number(expedition.guildLevel || 1) - 3);
-    const relief = carrier ? statsFor(carrier, state.inventory).carrierFatigueRelief : 0;
-    const increase = Math.max(2, baseIncrease - relief);
+    const carrier = activeFor(state, expedition).some(person => person.job === 'carrier');
+    const carrierLevel = carrier ? Number(carrier.level || 1) : 0;
+    const carrierRelief = carrier ? 2 + Math.min(3, Math.floor(Math.max(0, carrierLevel - 1) / 4)) : 0;
+    const increase = Math.max(1, 4 + Math.max(0, Number(expedition.guildLevel || 1) - 2) + Number(dungeon.marchFatigue || 0) - carrierRelief);
     for (const person of activeFor(state, expedition)) person.fatigue = Math.min(100, person.fatigue + increase);
     if (carrier) recordDiscovery(expedition, 'skills', '行軍時の荷重分散');
-    const text = carrier ? `長い移動が続いた。${carrier.name}が荷を分け、疲労増加を${increase}に抑えた。` : `険しい長距離行軍で足が重くなり、全員の疲労が${increase}増えた。`;
+    const text = carrier ? `長い移動が続いたが、運び屋が荷を分け、疲労増加を${increase}に抑えた。` : `長い行軍で足が重くなり、全員の疲労が${increase}増えた。`;
     expedition.narrative = { type: 'danger', title: '長い行軍', description: text };
     addLog(expedition, text, 'danger');
     return;
   }
-  if (event.kind === 'locked-chest') return resolveLockedChest(state, expedition, rng);
+  if (event.kind === 'locked-chest') return resolveLockedChest(state, expedition, rng, false);
+  if (event.kind === 'trapped-chest') return resolveLockedChest(state, expedition, rng, true);
   if (event.kind === 'mine-cache') {
     recordDiscovery(expedition, 'events', '鉱脈');
     const item = addLoot(state, expedition, rng, 'cache');
@@ -421,7 +436,6 @@ function resolveEvent(state, expedition, event) {
     return;
   }
   if (event.kind === 'chest') {
-    if (dungeon.id === 'trap-fort') return resolveTrappedChest(state, expedition, rng, Boolean(event.trapped));
     recordDiscovery(expedition, 'events', '宝箱');
     const hasGear = rng() < .68;
     const gear = hasGear ? addLoot(state, expedition, rng, 'chest') : null;
@@ -509,6 +523,8 @@ function resolveHazard(state, expedition, hazard, rng) {
       applyDamage(state, expedition, target, damage, hazard === 'poison' ? '毒針' : trapName);
       if (hazard === 'poison') {
         recordDiscovery(expedition, 'statusEffects', '毒');
+        target.conditions ||= [];
+        if (!target.conditions.includes('毒')) target.conditions.push('毒');
         target.fatigue = Math.min(100, target.fatigue + Math.max(2, Math.round(8 * (1 - targetStats.poisonResistance))));
         if (targetStats.poisonResistance > 0) recordDiscovery(expedition, 'equipment', '毒への抵抗を確認した装備');
       }
@@ -539,23 +555,66 @@ function resolveHazard(state, expedition, hazard, rng) {
     const damage = Math.max(3, base - (warrior ? 7 : 0) - statsFor(target, state.inventory).collapseDefense);
     if (statsFor(target, state.inventory).collapseDefense) recordDiscovery(expedition, 'equipment', '崩落を和らげる防具');
     applyDamage(state, expedition, target, damage, '崩落');
-    const carrierRelief = carrier ? statsFor(carrier, state.inventory).carrierFatigueRelief : 0;
-    const fatigue = Math.max(2, 7 - carrierRelief);
+    const fatigue = carrier ? 1 : 5;
     for (const person of party) person.fatigue = Math.min(100, person.fatigue + fatigue);
     text = warrior
       ? `${warrior.name}が崩落した梁を押さえた。${target.name}の被害は${damage}ダメージに抑えられた。`
       : `坑道の天井が崩れた。${target.name}が${damage}ダメージを受け、粉塵で全員が疲れた。`;
-    text += ` 全員の疲労が${fatigue}増えた。`;
     if (carrier) text += ` ${carrier.name}が荷を整理し、疲労の増加を抑えた。`;
     if (carrier) recordDiscovery(expedition, 'skills', ['荷物整理', '疲労軽減']);
     context = { type: carrier ? 'carrier' : 'collapse' };
     tone = 'danger';
   } else if (hazard === 'dust') {
-    const carrierRelief = carrier ? statsFor(carrier, state.inventory).carrierFatigueRelief : 0;
-    const increase = carrier ? Math.max(2, 10 - carrierRelief) : 10;
+    const increase = carrier ? 2 : 8;
     for (const person of party) person.fatigue = Math.min(100, person.fatigue + increase);
-    text = carrier ? `${carrier.name}が荷を軽くし、粉塵の中でも疲労増加を${increase}に抑えて進んだ。` : `濃い粉塵に息を取られ、全員の疲労が${increase}増した。`;
+    text = carrier ? `${carrier.name}が荷を軽くし、粉塵の中でも疲れを抑えて進んだ。` : '濃い粉塵に息を取られ、全員の疲労が増した。';
     if (carrier) recordDiscovery(expedition, 'skills', ['荷物整理', '疲労軽減']);
+    context = { type: 'carrier' };
+  } else if (hazard === 'narrow-ledge') {
+    if (archer && rng() < Math.min(.9, .38 + archer.level * .035)) {
+      recordDiscovery(expedition, 'skills', '足場を読む');
+      text = `${archer.name}が狭い足場の欠けを見つけ、全員を一列に導いた。`;
+      expedition.bonusXp += 4;
+      tone = 'good';
+      context = { type: 'archer' };
+    } else {
+      const target = pick(rng, party);
+      const damage = rnd(rng, 12, 21);
+      applyDamage(state, expedition, target, damage, '崩れた足場');
+      target.conditions ||= [];
+      if (!target.conditions.includes('転倒')) target.conditions.push('転倒');
+      recordDiscovery(expedition, 'statusEffects', '転倒');
+      text = `狭い足場が崩れ、${target.name}が${damage}ダメージを受けて転倒した。隊列を立て直す。`;
+      for (const person of party) person.fatigue = Math.min(100, person.fatigue + 3);
+      tone = 'danger';
+      context = { type: 'collapse', targetId: target.id };
+    }
+  } else if (hazard === 'laceration') {
+    const target = pick(rng, party);
+    const damage = rnd(rng, 8, 14);
+    applyDamage(state, expedition, target, damage, '鋭い障害物');
+    target.conditions ||= [];
+    if (!target.conditions.includes('裂傷')) target.conditions.push('裂傷');
+    recordDiscovery(expedition, 'statusEffects', '裂傷');
+    text = `${target.name}が鋭い破片で${damage}ダメージを受け、裂傷を負った。`;
+    tone = 'danger';
+    context = { type: 'injury', targetId: target.id };
+  } else if (hazard === 'long-haul') {
+    const carrierLevel = carrier ? Number(carrier.level || 1) : 0;
+    const reduction = carrier ? 3 + Math.min(6, Math.floor(carrierLevel / 2)) : 0;
+    const increase = Math.max(2, 13 - reduction);
+    for (const person of party) person.fatigue = Math.min(100, person.fatigue + increase);
+    if (carrier) recordDiscovery(expedition, 'skills', ['行軍時の荷重分散', '疲労軽減']);
+    const exhausted = party.slice().sort((a, b) => b.fatigue - a.fatigue)[0];
+    if (exhausted && exhausted.fatigue >= 72) {
+      exhausted.conditions ||= [];
+      if (!exhausted.conditions.includes('消耗')) exhausted.conditions.push('消耗');
+      recordDiscovery(expedition, 'statusEffects', '消耗');
+    }
+    text = carrier
+      ? `${carrier.name}が荷重を分けたが、険しい長距離行軍で全員の疲労が${increase}増えた。`
+      : `長距離の険路が続き、全員の疲労が${increase}増えた。`;
+    tone = 'danger';
     context = { type: 'carrier' };
   }
   expedition.campContext = context;
@@ -565,87 +624,58 @@ function resolveHazard(state, expedition, hazard, rng) {
 }
 
 function hazardTitle(hazard) {
-  return ({ pit: '落とし穴', poison: '毒針の罠', blast: '爆発罠', alarm: '警報装置', gust: '峡谷の突風', 'falling-rock': '落石', 'low-visibility': '視界不良', 'cave-in': '坑道の崩落', dust: '鉱山粉塵', 'unstable-ground': '不安定な足場' })[hazard] || '探索中の障害';
+  return ({ pit: '落とし穴', poison: '毒針の罠', blast: '爆発罠', alarm: '警報装置', gust: '峡谷の突風', 'falling-rock': '落石', 'low-visibility': '視界不良', 'cave-in': '坑道の崩落', dust: '鉱山粉塵', 'unstable-ground': '不安定な足場', 'narrow-ledge': '狭い足場', laceration: '鋭い破片', 'long-haul': '険路の長距離行軍' })[hazard] || '探索中の障害';
 }
 
-function resolveLockedChest(state, expedition, rng) {
-  return resolveTrappedChest(state, expedition, rng, true);
-}
-
-function resolveTrappedChest(state, expedition, rng, locked) {
+function resolveLockedChest(state, expedition, rng, trapped = false) {
+  recordDiscovery(expedition, 'hazards', '鍵付き宝箱');
+  recordDiscovery(expedition, 'events', '鍵付き宝箱');
+  if (trapped) recordDiscovery(expedition, 'hazards', '保管箱の仕掛け');
   const party = activeFor(state, expedition);
-  if (!party.length) return;
   const thief = party.find(person => person.job === 'thief');
-  const title = locked ? '鍵付き宝箱' : '罠付きの宝箱';
-  recordDiscovery(expedition, 'events', title);
-  recordDiscovery(expedition, 'hazards', '宝箱に仕掛けられた罠');
-  if (thief && rng() < statsFor(thief, state.inventory).trapSkill) {
-    recordDiscovery(expedition, 'skills', ['罠発見', '罠解除', ...(locked ? ['鍵開け'] : [])]);
-    const item = addLoot(state, expedition, rng, 'chest');
-    const text = item
-      ? `${thief.name}が仕掛けを解除${locked ? 'して鍵を開け' : 'し'}、「${item.name}」を回収した。`
-      : `${thief.name}が仕掛けを解除${locked ? 'して鍵を開け' : 'した'}が、荷がいっぱいで中身を残した。`;
-    expedition.bonusXp += 4;
-    expedition.narrative = { type: item ? 'loot' : 'event', title: '罠を解除', description: text };
-    addLog(expedition, text, item ? 'good' : 'normal');
-    expedition.campContext = { type: 'thief', hazard: title };
-    return;
-  }
-
-  // Without a trained trap worker the party usually leaves a chest alone; a rushed attempt can still trigger it.
-  const cautious = party.some(person => person.personality === '慎重');
-  const triggerChance = thief ? 1 : Math.max(.42, (locked ? .74 : .62) - (cautious ? .12 : 0));
-  if (rng() >= triggerChance) {
-    const text = `${title}を見つけたが、安全を優先して手を出さずに進んだ。`;
-    expedition.narrative = { type: 'event', title, description: text };
-    addLog(expedition, text, 'normal');
+  if (!thief) {
+    if (rng() < (trapped ? .58 : .22)) {
+      const target = pick(rng, party);
+      const damage = trapped ? rnd(rng, 13, 21) : rnd(rng, 7, 12);
+      applyDamage(state, expedition, target, damage, '宝箱の仕掛け');
+      if (trapped && rng() < .45) {
+        target.conditions ||= [];
+        if (!target.conditions.includes('裂傷')) target.conditions.push('裂傷');
+        recordDiscovery(expedition, 'statusEffects', '裂傷');
+      }
+      const text = `鍵付き宝箱は開けられず、${trapped ? '仕掛けが作動した。' : ''}${target.name}が${damage}ダメージを受けた。`;
+      expedition.narrative = { type: 'danger', title: '開かない宝箱', description: text };
+      addLog(expedition, text, 'danger');
+    } else {
+      const text = '鍵付き宝箱を発見したが、開け方が分からず安全のため残して進んだ。';
+      expedition.narrative = { type: 'event', title: '鍵付き宝箱', description: text };
+      addLog(expedition, text, 'normal');
+    }
     expedition.campContext = { type: 'locked-chest' };
     return;
   }
-
-  const trap = pick(rng, ['poison', 'blast', 'alarm', 'curse', 'sleep', 'bleed', 'pit']);
-  const trapName = { poison: '毒針', blast: '爆発', alarm: '警報', curse: '呪い', sleep: '眠り粉', bleed: '出血針', pit: '落とし穴' }[trap];
-  recordDiscovery(expedition, 'hazards', `${trapName}の罠`);
-  if (trap === 'alarm') {
-    expedition.alerted = true;
-    recordDiscovery(expedition, 'statusEffects', '警報で敵が警戒');
-    const text = `${thief ? `${thief.name}は仕掛けに気づいたが、` : ''}警報装置が鳴った。次に現れる敵は警戒している。`;
-    expedition.narrative = { type: 'danger', title: '宝箱の警報', description: text };
+  const skill = statsFor(thief, state.inventory).trapSkill;
+  if (rng() < Math.min(.97, skill + (trapped ? .04 : .28))) {
+    recordDiscovery(expedition, 'skills', '鍵開け');
+    const item = addLoot(state, expedition, rng, 'chest');
+    const text = item ? `${thief.name}が鍵を解除し、「${item.name}」を回収した。` : `${thief.name}が鍵を解除したが、荷が一杯で中身は断念した。`;
+    expedition.narrative = { type: item ? 'loot' : 'event', title: '鍵を解除', description: text };
+    expedition.bonusXp += 5;
+    addLog(expedition, text, item ? 'good' : 'normal');
+  } else {
+    const target = pick(rng, party);
+    const damage = trapped ? rnd(rng, 13, 21) : 8;
+    applyDamage(state, expedition, target, damage, '宝箱の仕掛け');
+    if (trapped && rng() < .5) {
+      target.conditions ||= [];
+      if (!target.conditions.includes('裂傷')) target.conditions.push('裂傷');
+      recordDiscovery(expedition, 'statusEffects', '裂傷');
+    }
+    const text = `${thief.name}は仕掛けを見抜ききれず、箱が作動した。${target.name}が${damage}ダメージを受けた。`;
+    expedition.narrative = { type: 'danger', title: '鍵の仕掛け', description: text };
     addLog(expedition, text, 'danger');
-    expedition.campContext = { type: thief ? 'thief-failed' : 'locked-chest', hazard: trapName };
-    return;
   }
-  const target = pick(rng, party);
-  const resistance = statsFor(target, state.inventory).poisonResistance;
-  const damage = trap === 'blast' ? rnd(rng, 18, 27)
-    : trap === 'pit' ? rnd(rng, 14, 22)
-      : trap === 'bleed' ? rnd(rng, 11, 17)
-        : trap === 'poison' ? Math.round(rnd(rng, 10, 17) * (1 - resistance))
-          : trap === 'curse' ? rnd(rng, 8, 13) : rnd(rng, 4, 8);
-  applyDamage(state, expedition, target, damage, trapName);
-  if (trap === 'poison') {
-    target.fatigue = Math.min(100, target.fatigue + Math.max(4, Math.round(10 * (1 - resistance))));
-    recordDiscovery(expedition, 'statusEffects', '毒');
-  } else if (trap === 'curse') {
-    expedition.cursedIds ||= [];
-    if (!expedition.cursedIds.includes(target.id)) expedition.cursedIds.push(target.id);
-    target.fatigue = Math.min(100, target.fatigue + 4);
-    recordDiscovery(expedition, 'statusEffects', '呪い');
-  } else if (trap === 'sleep') {
-    expedition.sleepingIds ||= [];
-    if (!expedition.sleepingIds.includes(target.id)) expedition.sleepingIds.push(target.id);
-    target.fatigue = Math.min(100, target.fatigue + 5);
-    recordDiscovery(expedition, 'statusEffects', '眠り');
-  } else if (trap === 'bleed') {
-    expedition.bleedingIds ||= [];
-    if (!expedition.bleedingIds.includes(target.id)) expedition.bleedingIds.push(target.id);
-    target.fatigue = Math.min(100, target.fatigue + 5);
-    recordDiscovery(expedition, 'statusEffects', '出血');
-  }
-  const text = `${thief ? `${thief.name}が${title}を調べたが、` : `${title}に手を伸ばし、`}${trapName}の罠が作動した。${target.name}は${damage}ダメージを受けた${trap === 'poison' ? '。毒で疲労も増した' : trap === 'sleep' ? '。眠気で次の戦闘の動きが鈍る' : trap === 'curse' ? '。呪いが遠征中の攻撃を鈍らせる' : trap === 'bleed' ? '。傷口から出血している' : ''}。`;
-  expedition.narrative = { type: 'danger', title: `${trapName}の作動`, description: text };
-  addLog(expedition, text, 'danger');
-  expedition.campContext = { type: thief ? 'thief-failed' : 'trap', hazard: trapName, targetId: target.id };
+  expedition.campContext = { type: 'thief', hazard: trapped ? '仕掛け付きの保管箱' : '鍵付き宝箱' };
 }
 
 function applyDamage(state, expedition, person, amount, cause) {
@@ -701,10 +731,9 @@ function partyHas(expedition, state, job) { return partyFor(state, expedition.pa
 
 function applyLoadFatigue(state, expedition, base = 4) {
   if (expedition.carriedWeight <= expedition.carryLimit) return;
-  const carrier = partyFor(state, expedition.partyIds).find(person => person.job === 'carrier');
+  const carrier = partyHas(expedition, state, 'carrier');
   if (carrier) recordDiscovery(expedition, 'skills', '重量超過時の疲労軽減');
-  const relief = carrier ? statsFor(carrier, state.inventory).carrierFatigueRelief : 0;
-  const penalty = Math.max(1, base - relief);
+  const penalty = Math.max(1, base - (carrier ? 3 : 0));
   for (const person of activeFor(state, expedition)) person.fatigue = Math.min(100, person.fatigue + penalty);
 }
 
@@ -739,10 +768,9 @@ export function resolveCarrierCampSupport(state, expedition, scene, rng = Math.r
     return sum + (maximum - Math.max(0, person.hp)) / maximum;
   }, 0) / Math.max(1, party.length);
   const policyShift = expedition.policy === 'safe' ? -.12 : expedition.policy === 'push' ? .13 : 0;
-  const supportRank = statsFor(carrier, state.inventory).carrierFatigueRelief;
   const personalityShift = carrier.personality === '世話好き' ? .12 : carrier.personality === '温厚' ? .07 : carrier.personality === '無口' ? -.06 : 0;
   const danger = ({ 'old-cave': 0, 'trap-fort': .15, 'wind-gorge': .12, 'collapsed-mine': .17, 'trial-labyrinth': .2 })[expedition.dungeonId] ?? .1;
-  const chance = clamp(.18 + Math.min(.1, supportRank * .012) + Math.min(.2, averageFatigue / 100 * .28) + Math.min(.16, hpNeed * .35) + policyShift + personalityShift - danger * .22, .045, .72);
+  const chance = clamp(.22 + Math.min(.2, averageFatigue / 100 * .28) + Math.min(.16, hpNeed * .35) + policyShift + personalityShift - danger * .22, .045, .72);
   if (rng() >= chance) return null;
 
   const cooking = hpNeed >= .055 || (hpNeed > .015 && rng() < (expedition.policy === 'push' ? .78 : .58)) || (averageFatigue >= 38 && rng() < .3);
@@ -753,11 +781,11 @@ export function resolveCarrierCampSupport(state, expedition, scene, rng = Math.r
     if (cooking) {
       const maximum = Math.max(1, statsFor(person, state.inventory).maxHp);
       const beforeHp = person.hp;
-      person.hp = Math.min(maximum, person.hp + Math.max(2, Math.round(maximum * (.04 + supportRank * .004))));
+      person.hp = Math.min(maximum, person.hp + Math.max(2, Math.round(maximum * .06)));
       hpRestored += person.hp - beforeHp;
     }
     const beforeFatigue = Number(person.fatigue || 0);
-    const amount = (cooking ? 3 : 4) + Math.floor(supportRank / 2);
+    const amount = cooking ? 4 : 6;
     person.fatigue = Math.max(0, beforeFatigue - amount);
     fatigueReduced += beforeFatigue - person.fatigue;
     if (person.id !== carrier.id && rng() < .22) {
@@ -796,7 +824,7 @@ export function campRaidRisk(state, expedition) {
   const party = activeFor(state, expedition);
   const averageFatigue = party.length ? party.reduce((sum, person) => sum + Number(person.fatigue || 0), 0) / party.length : 0;
   const carriedValue = (expedition.loot || []).reduce((sum, item) => sum + Math.max(0, Number(item.value || 0)), 0);
-  const dungeonRisk = ({ 'old-cave': 0, 'trap-fort': .085, 'wind-gorge': .075, 'collapsed-mine': .1 })[expedition.dungeonId] ?? .04;
+  const dungeonRisk = ({ 'old-cave': 0, 'trap-fort': .085, 'wind-gorge': .075, 'collapsed-mine': .1, 'aldina-road': .12, 'fergran-ruins': .14, 'north-expanse': .19 })[expedition.dungeonId] ?? .04;
   const thiefWatch = party.some(person => person.job === 'thief') ? .12 : 0;
   const epithetAwareness = party.reduce((sum, person) => sum + statsFor(person, state.inventory).raidAwareness, 0);
   const archerWatch = party.some(person => person.job === 'archer') ? .05 : 0;
@@ -907,15 +935,11 @@ function shouldRetreat(state, expedition) {
   if (!alive.length) return true;
   const ratios = alive.map(person => person.hp / statsFor(person, state.inventory).maxHp);
   const average = ratios.reduce((sum, value) => sum + value, 0) / ratios.length;
-  const fatigueValues = alive.map(person => Number(person.fatigue || 0));
-  const averageFatigue = fatigueValues.reduce((sum, value) => sum + value, 0) / fatigueValues.length;
-  const worstFatigue = Math.max(...fatigueValues);
-  const severeMarchFatigue = expedition.dungeonId === 'collapsed-mine';
   const cautious = alive.filter(person => person.personality === '慎重').length;
   const loadDanger = expedition.carriedWeight > expedition.carryLimit * 1.15;
-  if (expedition.policy === 'safe') return average < .70 || ratios.some(ratio => ratio < .43) || cautious >= 2 && average < .78 || severeMarchFatigue && (averageFatigue >= 58 || worstFatigue >= 84) || loadDanger;
-  if (expedition.policy === 'push') return average < .25 || ratios.some(ratio => ratio < .09) || alive.length < Math.ceil(members.length / 2) || severeMarchFatigue && averageFatigue >= 95;
-  return average < .43 || ratios.some(ratio => ratio < .19) || alive.length < Math.ceil(members.length / 2) || severeMarchFatigue && (averageFatigue >= 78 || worstFatigue >= 96) || loadDanger;
+  if (expedition.policy === 'safe') return average < .70 || ratios.some(ratio => ratio < .43) || cautious >= 2 && average < .78 || loadDanger;
+  if (expedition.policy === 'push') return average < .25 || ratios.some(ratio => ratio < .09) || alive.length < Math.ceil(members.length / 2);
+  return average < .43 || ratios.some(ratio => ratio < .19) || alive.length < Math.ceil(members.length / 2) || loadDanger;
 }
 
 function finishExpedition(state, outcome, reason) {
@@ -962,7 +986,15 @@ function finishExpedition(state, outcome, reason) {
   if (expedition.dungeonId === 'trial-labyrinth' && expedition.trialBossVictory && !state.trialBossDefeated) {
     state.trialBossDefeated = true;
     bossAwards = awardTrialHonors(state, expedition, expedition.trialBossBattle);
+    syncGuildProgress(state);
+    state.guildNotices ||= [];
+    state.guildNotices.unshift({
+      id: `post-trial-${Number(state.day || 1)}`,
+      title: '試練の迷宮踏破が各地へ伝わりました',
+      details: ['王国から新たな遠征許可と依頼が届き、遠方からも冒険者が訪れ始めています。ギルドの活動範囲と維持負担が広がります。']
+    });
   }
+  if (outcome === 'cleared' && dungeon.lateGame) recordLateDungeonClear(state, dungeon.id);
   const discoveries = structuredClone(expedition.discovery || createExpeditionDiscovery(0));
   if (!observed) {
     for (const field of ['enemies', 'hazards', 'statusEffects', 'environments', 'skills', 'equipment', 'loot', 'bosses', 'specialBosses', 'routes', 'sealedRooms', 'events']) discoveries[field] = [];

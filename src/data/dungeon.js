@@ -1,4 +1,5 @@
 import { TRIAL_DUNGEON } from './v07.js';
+import { LATE_DUNGEONS } from './late-dungeons.js';
 
 const oldCave = {
   id: 'old-cave', name: '古びた洞窟', level: '1〜3', recommendedLevel: 1, floors: 5,
@@ -48,10 +49,10 @@ const gorge = {
   floorNames: ['風穴の入口', '細い崖道', '折れた吊り橋', '風鳴きの棚', '嵐翼の巣'],
   enemyGroups: { 1: [['cliff-harpy', 'cliff-lizard'], ['cliff-harpy', 'cliff-harpy']], 2: [['ridge-archer', 'cliff-harpy'], ['cliff-lizard', 'ridge-archer']], 3: [['cliff-harpy', 'ridge-archer'], ['cliff-harpy', 'cliff-lizard', 'cliff-harpy']], 4: [['ridge-archer', 'cliff-harpy'], ['cliff-harpy', 'ridge-archer']] },
   enemiesById: {
-    'cliff-harpy': { name: '風切りハーピー', hp: 52, attack: 16, defense: 3, speed: 14, xp: 19, kind: 'flying', ranged: true, archerWeakpoint: true },
-    'cliff-lizard': { name: '崖トカゲ', hp: 62, attack: 17, defense: 7, speed: 8, xp: 20, kind: 'beast', meleeRetaliation: true, retaliationDamage: .42, retaliationEffect: '転倒' },
-    'ridge-archer': { name: '岩棚の射手', hp: 48, attack: 18, defense: 3, speed: 12, xp: 21, kind: 'ranged', magicResistance: .48, archerWeakpoint: true },
-    boss: { name: 'ヴァルカ', hp: 218, attack: 23, defense: 8, speed: 15, xp: 78, kind: 'flying', ranged: true, boss: true, meleeRetaliation: true, retaliationDamage: .48, retaliationEffect: '出血', magicResistance: .3, archerWeakpoint: true }
+    'cliff-harpy': { name: '風切りハーピー', hp: 52, attack: 16, defense: 3, speed: 14, xp: 19, kind: 'flying', ranged: true },
+    'cliff-lizard': { name: '崖トカゲ', hp: 62, attack: 17, defense: 7, speed: 8, xp: 20, kind: 'beast' },
+    'ridge-archer': { name: '岩棚の射手', hp: 48, attack: 18, defense: 3, speed: 12, xp: 21, kind: 'ranged' },
+    boss: { name: 'ヴァルカ', hp: 218, attack: 23, defense: 8, speed: 15, xp: 78, kind: 'flying', ranged: true, boss: true }
   },
   sideEvents: [{ title: '崖道の風', lines: ['突風が吹き抜け、荷紐が激しく鳴った。隊列を組み直す。', '風の弱まる岩陰を見つけ、ひと息ついた。'], effect: 'fatigue' }],
   explorationLines: ['風に混じる羽音が頭上を横切った。遠くの岩棚にも動く影がある。', '崖沿いの細道を選び、吹き上げる風に身を低くして進む。'],
@@ -76,6 +77,6 @@ const mine = {
   hazards: ['cave-in', 'dust', 'unstable-ground'], lootPool: ['weapon_mine_pick', 'armor_miner_plate', 'material_iron_ore', 'material_crystal_ore']
 };
 
-export const DUNGEONS = { 'old-cave': oldCave, 'trap-fort': trapFort, 'wind-gorge': gorge, 'collapsed-mine': mine, 'trial-labyrinth': TRIAL_DUNGEON };
+export const DUNGEONS = { 'old-cave': oldCave, 'trap-fort': trapFort, 'wind-gorge': gorge, 'collapsed-mine': mine, 'trial-labyrinth': TRIAL_DUNGEON, ...LATE_DUNGEONS };
 export const DUNGEON = oldCave;
 export const getDungeon = id => DUNGEONS[id] || oldCave;

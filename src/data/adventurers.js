@@ -28,17 +28,17 @@ export function statsFor(adventurer, items) {
   const mods = adventurer.statMods || {};
   const equipment = equipmentProfile(adventurer, items);
   const honor = epithetBonuses(adventurer);
+  const conditions = new Set(adventurer.conditions || []);
+  const baseAttack = job.attack + levelBonus * job.attackPerLevel + (weapon?.attack || 0) + Number(mods.attack || 0) + Number(honor.attack || 0) + (job.id === 'mage' ? Number(honor.magicAttack || 0) : 0) - tiredPenalty - equipment.attackPenalty;
+  const conditionAttackRate = (conditions.has('恐慌') ? .84 : 1) * (conditions.has('転倒') ? .86 : 1);
   return {
     maxHp: Math.max(1, job.baseHp + levelBonus * job.hpPerLevel + Number(mods.hp || 0)),
-    attack: Math.max(1, job.attack + levelBonus * job.attackPerLevel + (weapon?.attack || 0) + Number(mods.attack || 0) + Number(honor.attack || 0) + (job.id === 'mage' ? Number(honor.magicAttack || 0) : 0) - tiredPenalty - equipment.attackPenalty),
-    defense: Math.max(0, Math.floor(job.defense + levelBonus * job.defensePerLevel + (armor?.defense || 0) + Number(mods.defense || 0) + Number(honor.defense || 0))),
-    speed: Math.max(1, job.speed + Number(mods.speed || 0) + Number(honor.speed || 0) - equipment.speedPenalty),
+    attack: Math.max(1, Math.floor(baseAttack * conditionAttackRate)),
+    defense: Math.max(0, Math.floor(job.defense + levelBonus * job.defensePerLevel + (armor?.defense || 0) + Number(mods.defense || 0) + Number(honor.defense || 0) - (conditions.has('転倒') ? 3 : 0))),
+    speed: Math.max(1, job.speed + Number(mods.speed || 0) + Number(honor.speed || 0) - equipment.speedPenalty - (conditions.has('転倒') ? 4 : 0)),
     heal: job.id === 'priest' ? 18 + levelBonus * 3 + (weapon?.heal || 0) + Number(honor.heal || 0) : 0,
-    // New thieves start as learners; trap work improves with field levels rather than unlocking fully trained.
-    trapSkill: job.id === 'thief' ? Math.min(.92, .10 + adventurer.level * .048 + Number(equipment.effects.trapAssist || 0) + Number(honor.trapSkill || 0) - equipment.unfit * .06) : 0,
-    // A rookie carrier helps with a small load, while an experienced one changes long expeditions materially.
-    carryBonus: job.id === 'carrier' ? 12 + adventurer.level * 2.5 + Number(honor.carryBonus || 0) : 0,
-    carrierFatigueRelief: job.id === 'carrier' ? Math.min(8, Math.floor(Math.max(0, adventurer.level - 1) * .6)) : 0,
+    trapSkill: job.id === 'thief' ? Math.min(.95, .38 + adventurer.level * .055 + Number(equipment.effects.trapAssist || 0) + Number(honor.trapSkill || 0) - equipment.unfit * .06) : 0,
+    carryBonus: job.id === 'carrier' ? 16 + adventurer.level * 3 + Number(honor.carryBonus || 0) : 0,
     equipmentWeight: equipment.weight,
     equipmentFatigue: equipment.fatigue,
     fatigueReduction: Number(honor.fatigueReduction || 0),

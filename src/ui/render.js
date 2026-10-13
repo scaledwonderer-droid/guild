@@ -7,12 +7,13 @@ import { getSurveyRecord, surveyProgressLabel } from '../systems/survey.js';
 import { createActivityPlan, nextUpkeepInfo, nextUpkeepLabel, trustLabel } from '../systems/time.js';
 import { WAREHOUSE_CATEGORIES, MATERIAL_EXCHANGES, warehouseGroups, materialExchangeStatus } from '../systems/warehouse.js';
 import { renderPortrait } from './portraits.js';
-import { renderCampLandscape } from './camp-scene.js?v=0.7fix8';
+import { renderCampLandscape } from './camp-scene.js';
 import { mountSpriteCanvases, renderCharacterSprite, renderEnemySprite } from './sprite-renderer.js';
-import { activityBackdropStyle, campBackdropStyle, dungeonBackdropStyle, guildBackdropStyle } from '../data/backgrounds.js?v=0.7fix8';
+import { activityBackdropStyle, campBackdropStyle, dungeonBackdropStyle, guildBackdropStyle } from '../data/backgrounds.js';
 import { equipmentFitLabel, equipmentProfile } from '../systems/equipment.js';
 import { hasTrialKeys, missingTrialKeys, ownedTrialKeys } from '../systems/trial.js';
 import { TRIAL_KEY_ITEMS } from '../data/v07.js';
+import { guildMaturityLabel, guildMaturityTier, rosterCapacity, lateDungeonClears } from '../systems/maturity.js';
 
 const html = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const pct = value => `${Math.max(0, Math.min(100, Math.round(value)))}%`;
@@ -74,6 +75,7 @@ export function render(state) {
           : state.screen === 'warehouse' ? renderWarehouse(state)
             : renderHome(state);
   if (view.dataset) view.dataset.screen = state.screen;
+  // Location art stays within its scene/banner; keep the page shell plain.
   view.innerHTML = page;
   mountSpriteCanvases(view, state);
 }
@@ -132,7 +134,7 @@ function renderAdventurers(state) {
       <div class="meter-row"><span>疲労</span><span>${person.fatigue || 0}%</span></div><div class="meter"><span style="width:${pct(person.fatigue || 0)};background:linear-gradient(90deg,#98835a,#d0ad69)"></span></div>
       <div class="stat-tags"><span class="small-stat"><b>攻</b>${stats.attack}</span><span class="small-stat"><b>守</b>${stats.defense}</span><span class="small-stat"><b>速</b>${stats.speed}</span>${stats.heal ? `<span class="small-stat"><b>癒</b>${stats.heal}</span>` : ''}<span class="small-stat"><b>経験</b>${person.exp} / ${person.level * 42}</span></div>
       ${person.epithets?.length ? `<details class="epithet-record"><summary>二つ名と固有技能</summary>${person.epithets.map(epithet => `<div class="epithet-entry"><strong>「${html(epithet.name)}」 · ${html(epithet.skillName)}</strong><small>${html(epithet.description)}</small><small>第${Number(epithet.earnedDay || 1)}日獲得</small></div>`).join('')}</details>` : ''}
-      <div class="condition-row">${person.injury ? `<span class="pill red">${html(person.injury)}</span>` : `<span class="pill">状態良好</span>`}<span class="pill ${person.fatigue >= 60 ? 'gold' : ''}">疲労 ${person.fatigue || 0}%</span><span class="pill ${person.guildTrust < 40 ? 'red' : ''}">ギルドとの関係：${trustLabel(person)}</span></div>
+      <div class="condition-row">${person.injury ? `<span class="pill red">${html(person.injury)}</span>` : `<span class="pill">状態良好</span>`}${(person.conditions || []).map(condition => `<span class="pill red">${html(condition)}</span>`).join('')}<span class="pill ${person.fatigue >= 60 ? 'gold' : ''}">疲労 ${person.fatigue || 0}%</span><span class="pill ${person.guildTrust < 40 ? 'red' : ''}">ギルドとの関係：${trustLabel(person)}</span></div>
       <div class="gear-section"><div class="gear-row"><label for="weapon-${person.id}">武器</label><select id="weapon-${person.id}" data-action="equip" data-person="${person.id}" data-slot="weapon" ${canEdit ? '' : 'disabled'}>${weaponOptions.map(weaponOption).join('')}</select></div>
       <div class="gear-row"><label for="armor-${person.id}">防具</label><select id="armor-${person.id}" data-action="equip" data-person="${person.id}" data-slot="armor" ${canEdit ? '' : 'disabled'}>${armorOptions.map(armorOption).join('')}</select></div><small class="gear-burden">装備重量 ${gear.weight} · 遠征時の重量疲労 +${gear.fatigue}${gear.unfit ? ` · 不向き装備 ${gear.unfit}点（攻撃・速度低下）` : ''}</small></div>
       <div class="adv-actions"><button class="button button-secondary button-small" data-action="adventurer-activity" data-activity="rest" data-person="${person.id}" ${canEdit ? '' : 'disabled'}>休養日</button><button class="button button-secondary button-small" data-action="adventurer-activity" data-activity="training" data-person="${person.id}" ${canEdit ? '' : 'disabled'}>訓練</button><button class="button button-secondary button-small" data-action="adventurer-activity" data-activity="contract" data-person="${person.id}" ${canEdit ? '' : 'disabled'}>軽依頼</button></div>
@@ -216,7 +218,7 @@ function renderExpedition(state) {
     const playbackUnit = sideSnapshot?.allies.find(unit => unit.id === person.id);
     const hp = playbackUnit?.hp ?? Math.max(0, person.hp);
     const maxHp = playbackUnit?.maxHp ?? stats.maxHp;
-    const condition = hp <= 0 ? '戦闘不能' : person.injury || '行動可能';
+    const condition = hp <= 0 ? '戦闘不能' : [person.injury, ...(playbackUnit?.conditions || person.conditions || [])].filter(Boolean).join('・') || '行動可能';
     return `<div class="field-member">${renderPortrait(person, jobKey(person.job))}<div><strong>${html(person.name)}</strong><small>${jobLabel(person.job)} · ${condition} · 疲労 ${person.fatigue || 0}%</small></div><span class="field-hp">HP ${hp}/${maxHp}</span><div class="meter hp"><span style="width:${pct(hp / maxHp * 100)}"></span></div></div>`;
   }).join('');
   const logEntries = battle?.status === 'playing'
@@ -334,7 +336,7 @@ function renderBattleArena(state, expedition, members, battle, currentAction) {
     const amount = target ? `<span class="battle-number ${healed ? 'heal' : 'damage'}">${healed ? '+' : '−'}${currentAction.amount}${defeated ? '<small>DOWN</small>' : ''}</span>` : '';
     return `<article class="combat-unit ally-unit ${jobKey(person.job)} ${rank} ${actor ? 'is-acting' : ''} ${target ? 'is-target' : ''} ${hit ? 'took-hit' : ''} ${healed ? 'is-healed' : ''} ${defeated ? 'is-downed' : ''}" data-character-id="${person.id}">
       <div class="unit-rank">${rank === 'front' ? '前衛' : '後衛'}</div><div class="unit-portrait sprite-holder">${renderCharacterSprite(person, animation, { facing: 'right' })}<span class="unit-glint"></span>${amount}</div>
-      <div class="unit-name">${html(person.name)}<small>${jobLabel(person.job)} · ${defeated ? '戦闘不能' : person.injury || `疲${person.fatigue || 0}%`}</small></div><div class="unit-health"><span style="width:${pct(unit.hp / unit.maxHp * 100)}"></span></div><div class="unit-hp">${unit.hp} / ${unit.maxHp}</div>
+      <div class="unit-name">${html(person.name)}<small>${jobLabel(person.job)} · ${defeated ? '戦闘不能' : [person.injury, ...(unit.conditions || [])].filter(Boolean).join('・') || `疲${person.fatigue || 0}%`}</small></div><div class="unit-health"><span style="width:${pct(unit.hp / unit.maxHp * 100)}"></span></div><div class="unit-hp">${unit.hp} / ${unit.maxHp}</div>
     </article>`;
   };
   const counts = new Map();
@@ -350,7 +352,7 @@ function renderBattleArena(state, expedition, members, battle, currentAction) {
     const amount = target ? `<span class="battle-number damage">−${currentAction.amount}${defeated ? '<small>DOWN</small>' : ''}</span>` : '';
     return `<article class="combat-unit enemy-unit ${foe.boss || foe.kind === 'boss' ? 'boss-unit' : ''} ${actor ? 'is-acting' : ''} ${target ? 'is-target' : ''} ${defeated ? 'is-downed' : ''}" data-enemy-id="${foe.id}">
       <div class="unit-rank">${foe.boss || foe.kind === 'boss' ? 'BOSS' : 'ENEMY'}</div><div class="enemy-portrait sprite-holder ${foe.kind} ${foe.boss ? 'boss' : ''}">${renderEnemySprite(foe, animation)}${amount}</div>
-      <div class="unit-name">${html(foe.name)}${counts.get(foe.name) > 1 ? `<small>群れの ${count} 体目 · ${defeated ? '撃破' : '交戦中'}</small>` : `<small>${foe.boss || foe.kind === 'boss' ? '最深部の主' : battle.type === 'raid' ? '野営地への襲撃者' : `${html(getDungeon(expedition.dungeonId).name)}の魔物`} · ${defeated ? '撃破' : '交戦中'}</small>`}</div><div class="unit-health enemy-health"><span style="width:${pct(foe.hp / foe.maxHp * 100)}"></span></div><div class="unit-hp">${foe.hp} / ${foe.maxHp}</div>
+      <div class="unit-name">${html(foe.name)}${(foe.conditions || []).map(condition => ` · ${html(condition)}`).join('')}${counts.get(foe.name) > 1 ? `<small>群れの ${count} 体目 · ${defeated ? '撃破' : '交戦中'}</small>` : `<small>${foe.boss || foe.kind === 'boss' ? '最深部の主' : battle.type === 'raid' ? '野営地への襲撃者' : `${html(getDungeon(expedition.dungeonId).name)}の魔物`} · ${defeated ? '撃破' : '交戦中'}</small>`}</div><div class="unit-health enemy-health"><span style="width:${pct(foe.hp / foe.maxHp * 100)}"></span></div><div class="unit-hp">${foe.hp} / ${foe.maxHp}</div>
     </article>`;
   }).join('');
   const beatLabel = currentAction ? `${html(currentAction.actorName)}　→　${html(currentAction.targetName)}　·　${html(currentAction.label)}` : '戦闘開始';
@@ -446,6 +448,14 @@ function renderWarehouse(state) {
 
 function renderGuild(state) {
   const level = Math.max(1, state.guildLevel || 1);
+  const capacity = rosterCapacity(state);
+  const maturityTier = guildMaturityTier(state);
+  const clearedLate = lateDungeonClears(state).map(id => DUNGEONS[id]?.name).filter(Boolean);
+  const maturityHint = maturityTier === 0
+    ? '遠征記録を重ね、経験を組織に根付かせましょう。'
+    : maturityTier === 1
+      ? '新しい地域の依頼が届き、登録枠と候補の幅が広がりました。'
+      : 'ベテランが新人訓練を手伝い、募集候補に経験者が混ざることがあります。維持費も増えています。';
   const thresholds = [0, 35, 110, 240, 420];
   const next = level >= 5 ? 420 : thresholds[level];
   const previous = thresholds[level - 1] || 0;
@@ -465,12 +475,12 @@ function renderGuild(state) {
   const economyNotices = [...(state.departureNotices || []), ...(state.economicNotices || [])].map(notice => `<div class="unlock-notice"><div><strong>${html(notice.title)}</strong><small>${html((notice.details || []).join('・'))}</small></div><button class="text-link" data-action="dismiss-economic" data-notice="${html(notice.id)}">確認</button></div>`).join('');
   const candidateCards = hires.map(candidate => {
     const candidateStats = statsFor(candidate, [...state.inventory, ...(candidate.equipment || [])]);
-    return `<article class="recruit-candidate"><div class="recruit-candidate-head">${renderPortrait(candidate, jobKey(candidate.job))}<div><strong>${html(candidate.name)}</strong><small>${html(JOBS[candidate.job]?.name || '冒険者')} · Lv.${candidate.level}</small></div><span class="pill">${html(candidate.personality)}</span></div><p>${html(candidate.quirk)}</p><div class="candidate-stats"><span>HP ${candidateStats.maxHp}</span><span>攻 ${candidateStats.attack}</span><span>守 ${candidateStats.defense}</span></div><button class="button button-secondary full-button" data-action="recruit" data-candidate="${html(candidate.id)}" ${state.gold < candidate.cost ? 'disabled' : ''}>${candidate.cost}Gで採用</button></article>`;
+    return `<article class="recruit-candidate"><div class="recruit-candidate-head">${renderPortrait(candidate, jobKey(candidate.job))}<div><strong>${html(candidate.name)}</strong><small>${html(JOBS[candidate.job]?.name || '冒険者')} · Lv.${candidate.level}</small></div><span class="pill">${html(candidate.personality)}</span></div><p>${html(candidate.quirk)}</p><div class="candidate-stats"><span>HP ${candidateStats.maxHp}</span><span>攻 ${candidateStats.attack}</span><span>守 ${candidateStats.defense}</span></div><button class="button button-secondary full-button" data-action="recruit" data-candidate="${html(candidate.id)}" ${state.gold < candidate.cost || state.adventurers.length >= capacity ? 'disabled' : ''}>${state.adventurers.length >= capacity ? '所属枠が満員' : `${candidate.cost}Gで採用`}</button></article>`;
   }).join('');
-  const canRecruit = !hires.length && Number(state.day || 1) >= Number(state.recruitmentReadyOn || 1);
+  const canRecruit = !hires.length && Number(state.day || 1) >= Number(state.recruitmentReadyOn || 1) && state.adventurers.length < capacity;
   const recruitmentPanel = `<article class="card guild-panel recruitment-panel"><div class="panel-head"><div><h3>冒険者募集</h3><small>候補は毎回3人。採用できるのは1人です。</small></div><span class="pill gold">登録費用 ${hires.length ? `${Math.min(...hires.map(person => person.cost))}〜${Math.max(...hires.map(person => person.cost))}G` : '個別表示'}</span></div>${hires.length
       ? `<div class="recruit-candidate-grid">${candidateCards}</div><div class="event-footer"><small>採用しなかった候補は今回の募集終了時に去ります。</small><button class="button button-quiet" data-action="recruit-dismiss">今回は見送る</button></div>`
-      : `<div class="recruit-empty"><p>${canRecruit ? '新しい候補を探せます。解禁済み職業から個性の異なる3人が集まります。' : `次の募集は第${state.recruitmentReadyOn}日からです。`}</p><button class="button button-gold" data-action="recruit-refresh" ${canRecruit ? '' : 'disabled'}>3人の候補を探す</button></div>`}</article>`;
+      : `<div class="recruit-empty"><p>${state.adventurers.length >= capacity ? `所属枠 ${capacity}人が埋まっています。` : canRecruit ? '新しい候補を探せます。解禁済み職業から個性の異なる3人が集まります。' : `次の募集は第${state.recruitmentReadyOn}日からです。`}</p><button class="button button-gold" data-action="recruit-refresh" ${canRecruit ? '' : 'disabled'}>3人の候補を探す</button></div>`}</article>`;
   const unlockedDungeons = Object.values(DUNGEONS).filter(dungeon => (state.unlockedDungeons || ['old-cave']).includes(dungeon.id));
   const surveyCards = unlockedDungeons.map(dungeon => {
     const record = getSurveyRecord(state, dungeon.id);
@@ -484,7 +494,8 @@ function renderGuild(state) {
   return `<div class="section-head"><div><p class="section-kicker">GUILD CHARTER</p><h2>ギルド管理</h2><p>国へ品を納め、公認を得ると人材や遠征許可が段階的に広がります。</p></div><span class="pill gold">ギルド Lv.${level}</span></div>
     <section class="guild-hall-banner card" style="${guildBackdropStyle(level)}"><div><span>THE ADVENTURERS' GUILD</span><strong>${level >= 4 ? '広がる冒険者ギルド' : '冒険者ギルド本部'}</strong><small>${level >= 4 ? '公認を重ね、受付と掲示板が整えられた。' : '木と石で築かれた、遠征の記録が集まる場所。'}</small></div></section>
     ${notices || economyNotices ? `<section class="guild-notices">${notices}${economyNotices}</section>` : ''}
-    <div class="guild-overview"><article class="card guild-progress-card"><div class="panel-head"><h3>国の公認とギルド成長</h3><span class="pill">所持金 ${state.gold || 0}G</span></div><div class="guild-level-line"><strong>ギルド Lv.${level}</strong><span>${level >= 5 ? '最高位に到達' : `${state.guildContribution || 0} / ${next} 公認ポイント`}</span></div><div class="meter guild-meter"><span style="width:${progress}%"></span></div><p>${level >= 5 ? '国から十分な信頼を得ました。' : `次の昇格まであと ${Math.max(0, next - (state.guildContribution || 0))} ポイント。戦利品の納品で加算されます。`}</p><div class="guild-unlocks"><span>現在のパーティー上限 ${partyLimitForLevel(level)}人</span><span>遠征許可 ${unlockedDungeons.length}地域</span><span>登録冒険者 ${state.adventurers.length}人</span><span>次回維持費 ${nextUpkeepLabel(state)}</span></div></article>
+    <div class="guild-overview"><article class="card guild-progress-card"><div class="panel-head"><h3>国の公認とギルド成長</h3><span class="pill">所持金 ${state.gold || 0}G</span></div><div class="guild-level-line"><strong>ギルド Lv.${level}</strong><span>${level >= 5 ? '最高位に到達' : `${state.guildContribution || 0} / ${next} 公認ポイント`}</span></div><div class="meter guild-meter"><span style="width:${progress}%"></span></div><p>${level >= 5 ? '国から十分な信頼を得ました。' : `次の昇格まであと ${Math.max(0, next - (state.guildContribution || 0))} ポイント。戦利品の納品で加算されます。`}</p><div class="guild-unlocks"><span>現在のパーティー上限 ${partyLimitForLevel(level)}人</span><span>遠征許可 ${unlockedDungeons.length}地域</span><span>所属枠 ${state.adventurers.length} / ${capacity}人</span><span>次回維持費 ${nextUpkeepLabel(state)}</span></div></article>
       <article class="card guild-panel"><div class="panel-head"><h3>職業登録</h3><span class="pill">現在確認できる職能</span></div><div class="guild-role-list">${roles}${unknownProfession}</div></article></div>
+    <article class="card guild-panel maturity-panel"><div class="panel-head"><h3>ギルドの成熟</h3><span class="pill gold">${html(guildMaturityLabel(state))}</span></div><p>${html(maturityHint)}</p><div class="guild-unlocks"><span>新人支援 ${maturityTier >= 2 ? 'ベテラン訓練あり' : '未確認'}</span><span>募集候補 ${maturityTier >= 1 ? '経験者が来る場合あり' : '基礎候補'}</span><span>組織運営 ${maturityTier ? '維持費増加' : '通常'}</span><span>確認済み遠征 ${clearedLate.length ? html(clearedLate.join('・')) : '後半地域の踏破記録なし'}</span></div></article>
     <div class="guild-columns"><div class="guild-column-stack">${recruitmentPanel}<article class="card guild-panel"><div class="panel-head"><h3>ギルド調査記録</h3><button class="text-link" data-action="nav-party">遠征準備へ</button></div><p class="subtle-note">冒険者が実際に持ち帰った情報だけを記録しています。</p><div class="survey-record-list">${surveyCards}${unknownRegion}</div></article>${bossRecordPanel}</div><article class="card guild-panel"><div class="panel-head"><h3>補給品の売店</h3><span class="pill">売却益を装備に</span></div><div class="shop-list">${shop}</div></article></div>`;
 }

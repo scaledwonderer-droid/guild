@@ -102,22 +102,22 @@ export const TRIAL_KEY_ITEMS = [
 export const RARE_BOSSES = {
   'old-cave': {
     id: 'rare-ashen-horn', name: '灰角の喰らい手',
-    template: { name: '灰角の喰らい手', hp: 720, attack: 40, defense: 13, speed: 14, xp: 190, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['howl', 'withering-pulse'] },
+    template: { name: '灰角の喰らい手', hp: 920, attack: 48, defense: 19, speed: 16, xp: 170, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, phaseThreshold: .48, specialPattern: ['howl', 'sweep'] },
     keyId: 'seal-ashen-loop'
   },
   'trap-fort': {
     id: 'rare-black-warden', name: '黒鎧の番人',
-    template: { name: '黒鎧の番人', hp: 950, attack: 46, defense: 21, speed: 12, xp: 220, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['trap-snap', 'withering-pulse'] },
+    template: { name: '黒鎧の番人', hp: 1080, attack: 52, defense: 28, speed: 9, xp: 210, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, phaseThreshold: .5, specialPattern: ['trap-snap', 'withering-pulse'] },
     keyId: 'seal-iron-mark'
   },
   'wind-gorge': {
     id: 'rare-storm-eater', name: '嵐喰らい',
-    template: { name: '嵐喰らい', hp: 1120, attack: 48, defense: 17, speed: 22, xp: 250, kind: 'flying', boss: true, rareBoss: true, ranged: true, archerWeakpoint: true, magicResistance: .42, meleeRetaliation: true, retaliationDamage: .58, retaliationEffect: '吹き飛ばし', specialEvery: 2, specialPattern: ['gale-sweep', 'withering-pulse'] },
+    template: { name: '嵐喰らい', hp: 1160, attack: 56, defense: 20, speed: 21, xp: 230, kind: 'flying', boss: true, rareBoss: true, ranged: true, specialEvery: 2, phaseThreshold: .48, specialPattern: ['gale-sweep', 'sweep'] },
     keyId: 'seal-feather-glyph'
   },
   'collapsed-mine': {
     id: 'rare-vein-colossus', name: '鉱脈喰らい',
-    template: { name: '鉱脈喰らい', hp: 1400, attack: 52, defense: 26, speed: 8, xp: 300, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, specialPattern: ['cave-slam', 'withering-pulse'] },
+    template: { name: '鉱脈喰らい', hp: 1420, attack: 61, defense: 31, speed: 7, xp: 260, kind: 'boss', boss: true, rareBoss: true, specialEvery: 2, phaseThreshold: .52, specialPattern: ['cave-slam', 'withering-pulse'] },
     keyId: 'seal-deep-vein'
   }
 };

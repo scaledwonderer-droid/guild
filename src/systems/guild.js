@@ -4,6 +4,7 @@ import { SHOP_ITEMS, STARTING_ITEMS } from '../data/items.js';
 import { ensureSurveyRecords, getSurveyRecord } from './survey.js';
 import { generateRecruitmentCandidates, recruitFromPool, dismissRecruitmentCandidates } from './recruitment.js';
 import { recordFinance } from './finance.js';
+import { rosterCapacity } from './maturity.js';
 
 export const GUILD_LEVEL_THRESHOLDS = [0, 35, 110, 240, 420];
 
@@ -20,6 +21,7 @@ export function syncGuildProgress(state) {
   if (state.guildLevel >= 3) unlockedDungeons.push('wind-gorge');
   if (state.guildLevel >= 4) unlockedDungeons.push('collapsed-mine');
   if (state.guildLevel >= 5) unlockedDungeons.push('trial-labyrinth');
+  if (state.trialBossDefeated) unlockedDungeons.push('aldina-road', 'fergran-ruins', 'north-expanse');
   state.unlockedDungeons = unlockedDungeons;
   state.unlockedJobs = ['warrior', 'mage', 'priest'];
   if (state.guildLevel >= 2) state.unlockedJobs.push('thief');
@@ -69,6 +71,9 @@ export function availableRecruits(state) {
 }
 
 export function recruitAdventurer(state, candidateId) {
+  if ((state.adventurers || []).length >= rosterCapacity(state)) {
+    return { ok: false, message: `現在のギルドの受入枠は${rosterCapacity(state)}人です。遠征と休養の人員を整えてください。` };
+  }
   return recruitFromPool(state, candidateId);
 }
 

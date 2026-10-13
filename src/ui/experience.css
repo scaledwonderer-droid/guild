@@ -602,7 +602,6 @@
 
 /* Version 0.7fix: illustrated backdrops on every management/activity surface. */
 .view { position:relative; isolation:isolate; }
-.view-backdrop { display:none; }
 .portrait-procedural { position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;z-index:2;background:#293a30; }
 .view[data-screen="adventurers"] .card:not(.hero-card):not(.scene-panel),
 .view[data-screen="party"] .card:not(.hero-card):not(.scene-panel),
@@ -658,8 +657,8 @@
 @keyframes camp-support-cook-motion { from { transform:translateY(0) rotate(0); } to { transform:translateY(-2px) rotate(-2deg); } }
 @media(max-height:850px) and (min-width:801px) { .scene.scene-battle { height:clamp(360px,44vh,420px); }.combat-arena.dense-arena { padding-top:74px;padding-bottom:19px; }.combat-arena.dense-arena .combat-team { gap:4px; }.battle-layout .event-card { padding:12px;margin-top:9px; }.battle-layout .event-card h3 { margin-bottom:5px; }.battle-layout .event-footer { margin-top:9px; } }
 @media(max-width:1050px) { .combat-arena.dense-arena { grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);padding-inline:7px; }.combat-arena.dense-arena .combat-unit { width:clamp(54px,7.2vw,70px); }.combat-arena.dense-arena .unit-portrait.sprite-holder { width:59px;height:70px; }.combat-arena.dense-arena .unit-portrait.sprite-holder .rpg-sprite { width:56px;height:70px; }.combat-arena.dense-arena .enemy-unit { width:59px; }.battle-layout { grid-template-columns:minmax(0,1.2fr) minmax(245px,.8fr); } }
-@media(max-width:800px) { .view-backdrop { inset:0 -16px; }.battle-layout { grid-template-columns:1fr; }.battle-layout .scene.scene-battle { height:408px; }.combat-arena.dense-arena { grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);padding:80px 7px 25px; }.combat-arena.dense-arena .combat-unit { width:clamp(54px,12vw,76px); }.battle-layout .expedition-stats { order:0; } }
-@media(max-width:520px) { .view-backdrop { inset:0 -12px; }.scene.scene-battle { height:427px; }.combat-arena.dense-arena { grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);padding:80px 3px 23px; }.combat-arena.dense-arena .combat-unit { width:53px; }.combat-arena.dense-arena .unit-portrait.sprite-holder { width:51px;height:61px; }.combat-arena.dense-arena .unit-portrait.sprite-holder .rpg-sprite { width:49px;height:61px; }.combat-arena.dense-arena .enemy-unit { width:52px; }.combat-arena.dense-arena .enemy-portrait.sprite-holder { width:48px;height:58px; }.combat-arena.dense-arena .enemy-portrait.sprite-holder .rpg-enemy-sprite { width:47px;height:59px; }.unit-name { white-space:normal; }.unit-name small { font-size:6px; }.battle-log summary small { font-size:8px; }.battle-survey .info-grid { grid-template-columns:1fr; } }
+@media(max-width:800px) { .battle-layout { grid-template-columns:1fr; }.battle-layout .scene.scene-battle { height:408px; }.combat-arena.dense-arena { grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);padding:80px 7px 25px; }.combat-arena.dense-arena .combat-unit { width:clamp(54px,12vw,76px); }.battle-layout .expedition-stats { order:0; } }
+@media(max-width:520px) { .scene.scene-battle { height:427px; }.combat-arena.dense-arena { grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);padding:80px 3px 23px; }.combat-arena.dense-arena .combat-unit { width:53px; }.combat-arena.dense-arena .unit-portrait.sprite-holder { width:51px;height:61px; }.combat-arena.dense-arena .unit-portrait.sprite-holder .rpg-sprite { width:49px;height:61px; }.combat-arena.dense-arena .enemy-unit { width:52px; }.combat-arena.dense-arena .enemy-portrait.sprite-holder { width:48px;height:58px; }.combat-arena.dense-arena .enemy-portrait.sprite-holder .rpg-enemy-sprite { width:47px;height:59px; }.unit-name { white-space:normal; }.unit-name small { font-size:6px; }.battle-log summary small { font-size:8px; }.battle-survey .info-grid { grid-template-columns:1fr; } }
 
 /* v0.7fix4: put location art on the actual sprite stage, beneath all scene actors. */
 .scene.scene-explore-v02,
@@ -687,9 +686,9 @@
 .scene.scene-battle .combat-arena { z-index:1;background:linear-gradient(0deg,#10181218,transparent 65%); }
 .scene.scene-camp-v02 .camp-landscape { background:transparent; }
 
-/* v0.7fix2: keep the illustrated layer visible and below every interactive surface. */
-body { background:var(--bg); }
 .sidebar { z-index: 40; }
 .main-area { position: relative; z-index: 1; }
 #view { position: relative; isolation: isolate; z-index: 0; }
 #app button, #app a, #app input, #app select, #app [data-action], #app [data-screen] { pointer-events: auto; }
+.maturity-panel { margin: 14px 0 18px; padding: 16px; }
+.maturity-panel > p { color: #aab5a8; font-size: 11px; line-height: 1.7; }

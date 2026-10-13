@@ -27,6 +27,15 @@ export const LOOT_ITEMS = [
   { template: 'material_harpy_feather', name: '風切り羽根', slot: 'material', attack: 0, defense: 0, heal: 0, rarity: 'common', value: 24, guildValue: 15, weight: 1, note: '町の工房で軽い外套との交換に使える。売却・国への納品も可能。' },
   { template: 'material_iron_ore', name: '鉄鉱石', slot: 'material', attack: 0, defense: 0, heal: 0, rarity: 'common', value: 28, guildValue: 17, weight: 5, note: '町の工房で重装鎧との交換に使える。売却・国への納品も可能。' },
   { template: 'material_crystal_ore', name: '晶鉱石', slot: 'material', attack: 0, defense: 0, heal: 0, rarity: 'uncommon', value: 48, guildValue: 30, weight: 4, note: '町の工房で重装鎧との交換に使える。売却・国への納品も可能。' }
+  ,{ template: 'weapon_wayfarer_blade', name: '街道守りの細剣', slot: 'weapon', attack: 12, defense: 0, heal: 0, rarity: 'rare', value: 150, guildValue: 92, weight: 2, effects: { trapAssist: .025 }, note: '軽く扱いやすい。攻撃力は重武器に及ばないが、探索の手を妨げにくい。' }
+  ,{ template: 'armor_surveyor_coat', name: '測量士の外套', slot: 'armor', attack: 0, defense: 7, heal: 0, rarity: 'rare', value: 138, guildValue: 86, weight: 2, effects: { fatigue: -2 }, note: '遠征の歩みを軽くする。重装の守りには及ばない。' }
+  ,{ template: 'material_road_seal', name: '旧街道の封蝋', slot: 'material', attack: 0, defense: 0, heal: 0, rarity: 'uncommon', value: 54, guildValue: 34, weight: 1, note: '町の工房で遠征具と交換できる。売却・国への納品も可能。' }
+  ,{ template: 'weapon_ridgepiercer', name: '稜線貫き', slot: 'weapon', attack: 13, defense: 0, heal: 0, rarity: 'rare', value: 168, guildValue: 100, weight: 3, effects: { rangedDefense: 1 }, note: '遠くの標的を狙いやすい弓。近接戦には向かない。' }
+  ,{ template: 'armor_windward_vest', name: '風除けの胴衣', slot: 'armor', attack: 0, defense: 6, heal: 0, rarity: 'uncommon', value: 132, guildValue: 80, weight: 1, effects: { rangedDefense: 2, fatigue: -1 }, note: '遠距離攻撃と長い移動に備える軽装。' }
+  ,{ template: 'material_ruin_core', name: '遺構の核片', slot: 'material', attack: 0, defense: 0, heal: 0, rarity: 'rare', value: 62, guildValue: 42, weight: 2, note: '町の工房で精密装備と交換できる。売却・国への納品も可能。' }
+  ,{ template: 'weapon_northstar_hammer', name: '北辰の戦鎚', slot: 'weapon', attack: 15, defense: 0, heal: 0, rarity: 'rare', value: 194, guildValue: 118, weight: 8, effects: { collapseDefense: 2 }, note: '強力だが重い。扱いに慣れた前衛向け。' }
+  ,{ template: 'armor_wayfarer_mail', name: '行軍者の鎖帷子', slot: 'armor', attack: 0, defense: 9, heal: 0, rarity: 'rare', value: 188, guildValue: 112, weight: 7, effects: { fatigue: -1 }, note: '長旅で荷重を分散する工夫がある。軽装の機敏さは失われる。' }
+  ,{ template: 'material_northstone', name: '北境の硬石', slot: 'material', attack: 0, defense: 0, heal: 0, rarity: 'uncommon', value: 70, guildValue: 44, weight: 5, note: '町の工房で頑丈な装備と交換できる。売却・国への納品も可能。' }
 ];
 
 export const SHOP_ITEMS = [

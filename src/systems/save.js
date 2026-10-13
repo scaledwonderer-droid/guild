@@ -10,7 +10,7 @@ const SAVE_KEY = 'ashen-crown-guild-v01';
 
 export function createInitialState() {
   const state = {
-    version: 12,
+    version: 13,
     day: 1,
     screen: 'home',
     adventurers: structuredClone(STARTING_ADVENTURERS),
@@ -48,6 +48,7 @@ export function createInitialState() {
     trialBossDefeated: false,
     trialKeyHistory: [],
     trialBossRecords: [],
+    lateDungeonClears: [],
     history: [],
     stats: { runs: 0, clears: 0, kills: 0 }
   };
@@ -63,6 +64,7 @@ export function createInitialState() {
   for (const person of state.adventurers) {
     person.guildTrust = 76;
     person.activityHistory = [];
+    person.conditions = [];
     ensureSpriteAppearance(person);
   }
   ensureUniquePortraitAppearances(state.adventurers);
@@ -71,7 +73,7 @@ export function createInitialState() {
 
 function migrateSave(saved) {
   const fresh = createInitialState();
-  const migrated = { ...fresh, ...saved, version: 12, stats: { ...fresh.stats, ...(saved.stats || {}) } };
+  const migrated = { ...fresh, ...saved, version: 13, stats: { ...fresh.stats, ...(saved.stats || {}) } };
   migrated.adventurers = Array.isArray(saved.adventurers) ? saved.adventurers : fresh.adventurers;
   migrated.inventory = Array.isArray(saved.inventory) ? saved.inventory : fresh.inventory;
   const knownItems = [...STARTING_ITEMS, ...LOOT_ITEMS, ...SHOP_ITEMS];
@@ -85,7 +87,7 @@ function migrateSave(saved) {
   migrated.guildContribution = Math.max(0, Number(saved.guildContribution || 0));
   migrated.guildLevel = Math.max(1, Math.min(5, Number(saved.guildLevel || 1)));
   migrated.guildNotices = Array.isArray(saved.guildNotices) ? saved.guildNotices : [];
-  if (![4, 5, 6, 7, 8, 9, 10, 11, 12].includes(saved.version)) {
+  if (![4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(saved.version)) {
     migrated.guildNotices = migrated.guildNotices.map((notice, index) => ({
       id: `migrated-${notice.id || index}`,
       title: 'ギルド公認ランクが上昇しました',
@@ -123,6 +125,7 @@ function migrateSave(saved) {
   migrated.trialBossDefeated = Boolean(saved.trialBossDefeated);
   migrated.trialKeyHistory = Array.isArray(saved.trialKeyHistory) ? saved.trialKeyHistory : [];
   migrated.trialBossRecords = Array.isArray(saved.trialBossRecords) ? saved.trialBossRecords : [];
+  migrated.lateDungeonClears = Array.isArray(saved.lateDungeonClears) ? [...new Set(saved.lateDungeonClears.filter(id => ['aldina-road', 'fergran-ruins', 'north-expanse'].includes(id)))] : [];
   migrated.selectedDungeonId = saved.selectedDungeonId || 'old-cave';
   const trialWasUnlocked = (migrated.unlockedDungeons || []).includes('trial-labyrinth');
   syncGuildProgress(migrated);
@@ -167,6 +170,7 @@ function migrateSave(saved) {
     person.hp = Math.max(0, Math.min(statsFor(person, migrated.inventory).maxHp, Number(person.hp ?? statsFor(person, migrated.inventory).maxHp)));
     person.guildTrust = Math.max(0, Math.min(100, Number(person.guildTrust ?? 75)));
     person.activityHistory = Array.isArray(person.activityHistory) ? person.activityHistory.slice(0, 8) : [];
+    person.conditions = Array.isArray(person.conditions) ? [...new Set(person.conditions)] : [];
   }
   if (saved.version < 4) migrateHistoricSurvey(migrated, saved.version);
   if (migrated.expedition) migrated.screen = 'expedition';
@@ -251,8 +255,8 @@ export function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return { state: createInitialState(), loaded: false };
     const saved = JSON.parse(raw);
-    if (![1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(saved.version) || !Array.isArray(saved.adventurers) || !Array.isArray(saved.inventory)) throw new Error('Unsupported save');
-    return { state: migrateSave(saved), loaded: true, migrated: saved.version !== 12 };
+    if (![1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(saved.version) || !Array.isArray(saved.adventurers) || !Array.isArray(saved.inventory)) throw new Error('Unsupported save');
+    return { state: migrateSave(saved), loaded: true, migrated: saved.version !== 13 };
   } catch (error) {
     console.warn('セーブデータを読み込めませんでした。新しい記録を開始します。', error);
     return { state: createInitialState(), loaded: false, corrupted: true };
@@ -261,7 +265,7 @@ export function loadGame() {
 
 export function saveGame(state) {
   try {
-    state.version = 12;
+    state.version = 13;
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     return true;
   } catch (error) {

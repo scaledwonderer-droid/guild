@@ -2,6 +2,7 @@ import { JOBS, statsFor } from '../data/adventurers.js';
 import { createSpriteAppearance } from '../data/sprite-appearance.js';
 import { ensurePortraitAppearance, ensureUniquePortraitAppearances } from '../data/portrait-appearance.js';
 import { recordFinance } from './finance.js';
+import { recruitmentLevelBonus, rosterCapacity } from './maturity.js';
 
 const NAMES = [
   'ネラ', 'ロビン', 'パヴェル', 'ユノ', 'フェン', 'カヤ', 'オスカー', 'ニナ', 'ラウル', 'イリス',
@@ -82,6 +83,7 @@ function makeCandidate(state, seq, rng, name, usedPortraitIds) {
   const job = chooseJob(state, rng);
   const equipment = equipmentFor(job, id);
   const personality = choose(PERSONALITIES, rng);
+  const level = candidateLevel(state, rng);
   const statMods = {
     hp: Math.floor(rng() * 13) - 6,
     attack: Math.floor(rng() * 3) - 1,
@@ -89,17 +91,30 @@ function makeCandidate(state, seq, rng, name, usedPortraitIds) {
     speed: rng() < .25 ? 1 : 0
   };
   const person = {
-    id, name, job, level: rng() < .18 ? 2 : 1, exp: 0, personality,
+    id, name, job, level, exp: 0, personality,
     quirk: choose(QUIRKS[job], rng), statMods,
     spriteAppearance: createSpriteAppearance(id, job),
     portraitAppearance: null,
     weapon: equipment[0].uid, armor: equipment[1].uid,
     equipment, fatigue: 0, injury: null, hp: 1, guildTrust: 78, activityHistory: [],
-    cost: 20 + Math.floor(rng() * 15)
+    conditions: [],
+    cost: 20 + Math.floor(rng() * 15) + Math.max(0, level - 1) * 8
   };
   person.portraitAppearance = ensurePortraitAppearance(person, usedPortraitIds);
   person.hp = statsFor(person, [...state.inventory, ...equipment]).maxHp;
   return person;
+}
+
+function candidateLevel(state, rng) {
+  const maturity = recruitmentLevelBonus(state);
+  const highest = maturity >= 3 ? 5 : maturity >= 2 ? 4 : maturity >= 1 ? 3 : 2;
+  let level = 1;
+  for (let next = 2; next <= highest; next++) {
+    const chance = next === 2 ? .18 + maturity * .12 : Math.max(.04, .12 - (next - 2) * .035 + maturity * .08);
+    if (rng() >= chance) break;
+    level = next;
+  }
+  return level;
 }
 
 export function generateRecruitmentCandidates(state, random = Math.random) {
@@ -127,6 +142,7 @@ export function recruitFromPool(state, candidateId) {
   if (!candidate) return { ok: false, message: 'この候補は今回の募集にはいません。' };
   if (!(state.unlockedJobs || []).includes(candidate.job)) return { ok: false, message: 'この職業はまだ登録できません。' };
   if ((state.departedAdventurers || []).some(person => person.id === candidate.id)) return { ok: false, message: 'この人物は以前ギルドを去っています。' };
+  if ((state.adventurers || []).length >= rosterCapacity(state)) return { ok: false, message: 'ギルドの所属枠がいっぱいです。先に人員配置を見直してください。' };
   if (Number(state.gold || 0) < candidate.cost) return { ok: false, message: `登録費用 ${candidate.cost}G が不足しています。` };
   state.gold -= candidate.cost;
   recordFinance(state, -candidate.cost, `冒険者登録：${candidate.name}`);
